@@ -1,0 +1,12 @@
+{
+  "name": "mecanova",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "portal",
+    "admin"
+  ]
+}
+
+
+
