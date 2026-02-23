@@ -12,10 +12,11 @@ import type { UserRole } from "@mecanova/shared";
 import {
   FileText,
   Search,
+  Download,
   ExternalLink,
   Lock,
   Star,
-  Eye,
+  Package,
 } from "lucide-react";
 
 interface DocVisible {
@@ -26,6 +27,7 @@ interface DocVisible {
   is_highlight: boolean;
   product_id: string | null;
   product_name: string | null;
+  file_path: string;
   created_at: string;
   download_url: string | null;
   access: "full" | "preview";
@@ -38,7 +40,7 @@ export default function DocumentsPage() {
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [accessFilter, setAccessFilter] = useState<string>("all");
   const [role, setRole] = useState<UserRole | null>(null);
-  const [partnerId, setPartnerId] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState<string | null>(null);
   const supabase = createClient();
 
   const loadDocuments = useCallback(async () => {
@@ -58,7 +60,6 @@ export default function DocumentsPage() {
     const userRole = profile.role as UserRole;
     const userPartnerId = profile.partner_id;
     setRole(userRole);
-    setPartnerId(userPartnerId);
 
     const { data: docs } = await supabase
       .from("documents")
@@ -149,6 +150,7 @@ export default function DocumentsPage() {
         is_highlight: doc.is_highlight,
         product_id: doc.product_id,
         product_name: doc.product_id ? productMap.get(doc.product_id) || null : null,
+        file_path: doc.file_path,
         created_at: doc.created_at,
         download_url,
         access,
@@ -163,6 +165,35 @@ export default function DocumentsPage() {
   useEffect(() => {
     loadDocuments();
   }, [loadDocuments]);
+
+  const handleDownload = async (doc: DocVisible) => {
+    if (!doc.file_path) return;
+    setDownloading(doc.id);
+    try {
+      const { data, error } = await supabase.storage
+        .from("documents")
+        .download(doc.file_path);
+      if (error || !data) {
+        alert("Download failed. Please try again.");
+        setDownloading(null);
+        return;
+      }
+      const url = URL.createObjectURL(data);
+      const a = document.createElement("a");
+      a.href = url;
+      const ext = doc.file_path.split(".").pop() || "pdf";
+      a.download = `${doc.title}.${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      alert("Download failed. Please try again.");
+    }
+    setDownloading(null);
+  };
+
+  const availableTypes = [...new Set(documents.map((d) => d.type))];
 
   const filtered = documents.filter((d) => {
     const matchesSearch =
@@ -194,6 +225,7 @@ export default function DocumentsPage() {
         icon={FileText}
       />
 
+      {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3 mb-5">
         <div className="relative flex-1">
           <Search
@@ -205,16 +237,16 @@ export default function DocumentsPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="mc-input pl-9"
-            placeholder="Search documents..."
+            placeholder="Search by title or product..."
           />
         </div>
         <select
           value={typeFilter}
           onChange={(e) => setTypeFilter(e.target.value)}
-          className="mc-input mc-select w-auto min-w-[150px]"
+          className="mc-input mc-select w-auto min-w-[160px]"
         >
           <option value="all">All Types</option>
-          {DOCUMENT_TYPES.map((t) => (
+          {DOCUMENT_TYPES.filter((t) => availableTypes.includes(t)).map((t) => (
             <option key={t} value={t}>
               {DOCUMENT_TYPE_LABELS[t]}
             </option>
@@ -223,7 +255,7 @@ export default function DocumentsPage() {
         <select
           value={accessFilter}
           onChange={(e) => setAccessFilter(e.target.value)}
-          className="mc-input mc-select w-auto min-w-[130px]"
+          className="mc-input mc-select w-auto min-w-[140px]"
         >
           <option value="all">All Access</option>
           <option value="full">Full Access</option>
@@ -247,10 +279,9 @@ export default function DocumentsPage() {
             <div
               key={doc.id}
               className="mc-card p-4 flex items-center gap-4"
-              style={{
-                opacity: doc.access === "preview" ? 0.7 : 1,
-              }}
+              style={{ opacity: doc.access === "preview" ? 0.7 : 1 }}
             >
+              {/* Icon */}
               <div
                 className="w-10 h-10 flex items-center justify-center flex-shrink-0"
                 style={{
@@ -262,15 +293,14 @@ export default function DocumentsPage() {
               >
                 <FileText
                   className="w-5 h-5"
-                  style={{
-                    color: doc.access === "full" ? "var(--mc-success)" : "var(--mc-warning)",
-                  }}
+                  style={{ color: doc.access === "full" ? "var(--mc-success)" : "var(--mc-warning)" }}
                   strokeWidth={1.5}
                 />
               </div>
 
+              {/* Info */}
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span
                     className="text-sm font-medium truncate"
                     style={{ color: "var(--mc-text-primary)" }}
@@ -281,15 +311,27 @@ export default function DocumentsPage() {
                     <Star className="w-3 h-3 flex-shrink-0" style={{ color: "var(--mc-warning)" }} fill="currentColor" />
                   )}
                 </div>
-                <div className="flex items-center gap-3 mt-0.5">
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
                   <span
-                    className="text-[10px] font-medium tracking-wide uppercase"
-                    style={{ color: "var(--mc-text-tertiary)" }}
+                    className="inline-flex px-1.5 py-0.5 text-[10px] font-medium tracking-wide uppercase"
+                    style={{
+                      background: "rgba(236, 223, 204, 0.06)",
+                      border: "1px solid var(--mc-border)",
+                      color: "var(--mc-text-tertiary)",
+                    }}
                   >
                     {DOCUMENT_TYPE_LABELS[doc.type] || doc.type}
                   </span>
                   {doc.product_name && (
-                    <span className="text-[10px]" style={{ color: "var(--mc-text-muted)" }}>
+                    <span
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium"
+                      style={{
+                        background: "var(--mc-info-bg)",
+                        border: "1px solid var(--mc-info-light)",
+                        color: "var(--mc-info)",
+                      }}
+                    >
+                      <Package className="w-2.5 h-2.5" />
                       {doc.product_name}
                     </span>
                   )}
@@ -299,23 +341,34 @@ export default function DocumentsPage() {
                 </div>
               </div>
 
+              {/* Actions */}
               <div className="flex items-center gap-2 flex-shrink-0">
                 {doc.access === "full" ? (
-                  doc.download_url ? (
-                    <a
-                      href={doc.download_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                  <>
+                    <button
+                      onClick={() => handleDownload(doc)}
+                      disabled={downloading === doc.id}
                       className="mc-btn mc-btn-ghost text-xs py-1.5 px-3"
+                      title="Download file"
                     >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                      Download
-                    </a>
-                  ) : (
-                    <span className="flex items-center gap-1 text-xs" style={{ color: "var(--mc-success)" }}>
-                      <Eye className="w-3.5 h-3.5" /> Available
-                    </span>
-                  )
+                      <Download className="w-3.5 h-3.5" />
+                      {downloading === doc.id ? "..." : "Download"}
+                    </button>
+                    {doc.download_url && (
+                      <a
+                        href={doc.download_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-1.5 transition-colors"
+                        style={{ color: "var(--mc-text-muted)" }}
+                        onMouseEnter={(e) => (e.currentTarget.style.color = "var(--mc-cream)")}
+                        onMouseLeave={(e) => (e.currentTarget.style.color = "var(--mc-text-muted)")}
+                        title="Open in new tab"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+                  </>
                 ) : (
                   <span
                     className="flex items-center gap-1.5 text-xs px-3 py-1.5"

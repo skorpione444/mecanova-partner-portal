@@ -12,6 +12,7 @@ import {
   DOCUMENT_AUDIENCE_LABELS,
 } from "@mecanova/shared";
 import type { DocumentType, DocumentAudience } from "@mecanova/shared";
+import SearchableSelect from "@/components/SearchableSelect";
 import {
   FileText,
   Search,
@@ -288,33 +289,23 @@ export default function DocumentsPage() {
             </div>
             <div>
               <label className="mc-label">Partner (optional)</label>
-              <select
+              <SearchableSelect
+                options={partners.map((p) => ({ value: p.id, label: p.name }))}
                 value={partnerId}
-                onChange={(e) => setPartnerId(e.target.value)}
-                className="mc-input mc-select"
-              >
-                <option value="">None</option>
-                {partners.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
+                onChange={setPartnerId}
+                placeholder="Search partners..."
+                emptyLabel="None (general document)"
+              />
             </div>
             <div>
               <label className="mc-label">Product (optional)</label>
-              <select
+              <SearchableSelect
+                options={products.map((p) => ({ value: p.id, label: p.name }))}
                 value={productId}
-                onChange={(e) => setProductId(e.target.value)}
-                className="mc-input mc-select"
-              >
-                <option value="">None</option>
-                {products.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
+                onChange={setProductId}
+                placeholder="Search products..."
+                emptyLabel="None (not product-specific)"
+              />
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-5 mb-4">
