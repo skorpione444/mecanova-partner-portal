@@ -123,7 +123,7 @@ export default function ProductsPage() {
         if (doc.audience === "internal") continue;
         if (userRole === "client" && doc.audience === "distributor") continue;
 
-        const docAccess: "full" | "preview" = hasFullAccess && doc.audience !== "internal" ? "full" : "preview";
+        const docAccess: "full" | "preview" = hasFullAccess ? "full" : "preview";
         let download_url: string | null = null;
         if (docAccess === "full" && doc.file_path) {
           const { data: signedData } = await supabase.storage
