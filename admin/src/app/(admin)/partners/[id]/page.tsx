@@ -7,7 +7,14 @@ import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 import StatusBadge from "@/components/StatusBadge";
 import type { Partner, Profile, OrderRequest } from "@mecanova/shared";
-import { PARTNER_TYPE_LABELS } from "@mecanova/shared";
+import {
+  PARTNER_TYPE_LABELS,
+  CONTRACT_TYPE_LABELS,
+  CLIENT_TIER_LABELS,
+  CAPACITY_STATUS_LABELS,
+  CONTRACT_TYPES,
+} from "@mecanova/shared";
+import type { ContractType } from "@mecanova/shared";
 import {
   Users,
   ArrowLeft,
@@ -20,12 +27,26 @@ import {
   ClipboardList,
   Factory,
   Package,
+  Plus,
+  X,
+  Star,
+  Lock,
+  Globe,
 } from "lucide-react";
+
+interface RelationshipEntry {
+  partner_id: string;
+  partner_name: string;
+  is_default: boolean;
+  contract_type: string;
+  assignment_locked: boolean;
+  assignment_reason: string | null;
+}
 
 interface PartnerDetail extends Partner {
   profiles: Profile[];
   orders: OrderRequest[];
-  clientDistributors: { partner_id: string; partner_name: string }[];
+  clientDistributors: RelationshipEntry[];
   products: { id: string; name: string }[];
 }
 
@@ -38,6 +59,18 @@ export default function PartnerDetailPage() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviting, setInviting] = useState(false);
   const [inviteMsg, setInviteMsg] = useState<string | null>(null);
+
+  // Relationship management state
+  const [availablePartners, setAvailablePartners] = useState<
+    { id: string; name: string }[]
+  >([]);
+  const [selectedRelId, setSelectedRelId] = useState("");
+  const [newContractType, setNewContractType] = useState<ContractType>("allowed");
+  const [newAssignmentReason, setNewAssignmentReason] = useState("");
+  const [newAssignmentLocked, setNewAssignmentLocked] = useState(false);
+  const [savingRel, setSavingRel] = useState(false);
+  const [relMsg, setRelMsg] = useState<string | null>(null);
+
   const supabase = createClient();
 
   const load = useCallback(async () => {
@@ -52,31 +85,32 @@ export default function PartnerDetailPage() {
       return;
     }
 
-    const [profilesRes, ordersRes, cdRes, supplierProductsRes] = await Promise.all([
-      supabase.from("profiles").select("*").eq("partner_id", id),
-      supabase
-        .from("order_requests")
-        .select("*")
-        .or(`partner_id.eq.${id},client_id.eq.${id},distributor_id.eq.${id}`)
-        .order("created_at", { ascending: false })
-        .limit(10),
-      partnerData.partner_type === "distributor"
-        ? supabase
-            .from("client_distributors")
-            .select("client_id")
-            .eq("distributor_id", id)
-        : supabase
-            .from("client_distributors")
-            .select("distributor_id")
-            .eq("client_id", id),
-      partnerData.partner_type === "supplier"
-        ? supabase
-            .from("products")
-            .select("id, name")
-            .eq("supplier_id", id)
-            .order("name")
-        : Promise.resolve({ data: [] as { id: string; name: string }[] }),
-    ]);
+    const [profilesRes, ordersRes, cdRes, supplierProductsRes] =
+      await Promise.all([
+        supabase.from("profiles").select("*").eq("partner_id", id),
+        supabase
+          .from("order_requests")
+          .select("*")
+          .or(`partner_id.eq.${id},client_id.eq.${id},distributor_id.eq.${id}`)
+          .order("created_at", { ascending: false })
+          .limit(10),
+        partnerData.partner_type === "distributor"
+          ? supabase
+              .from("client_distributors")
+              .select("client_id, is_default, contract_type, assignment_locked, assignment_reason")
+              .eq("distributor_id", id)
+          : supabase
+              .from("client_distributors")
+              .select("distributor_id, is_default, contract_type, assignment_locked, assignment_reason")
+              .eq("client_id", id),
+        partnerData.partner_type === "supplier"
+          ? supabase
+              .from("products")
+              .select("id, name")
+              .eq("supplier_id", id)
+              .order("name")
+          : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+      ]);
 
     // Resolve partner names for relationships
     const relatedIds =
@@ -88,16 +122,48 @@ export default function PartnerDetailPage() {
             (r: { distributor_id?: string }) => r.distributor_id || ""
           );
 
-    let clientDistributors: { partner_id: string; partner_name: string }[] = [];
+    let clientDistributors: RelationshipEntry[] = [];
     if (relatedIds.length > 0) {
       const { data: relPartners } = await supabase
         .from("partners")
         .select("id, name")
         .in("id", relatedIds);
-      clientDistributors = (relPartners || []).map((p) => ({
-        partner_id: p.id,
-        partner_name: p.name,
-      }));
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      clientDistributors = (relPartners || []).map((p) => {
+        const cdRow =
+          partnerData.partner_type === "distributor"
+            ? (cdRes.data || []).find(
+                (r: any) => r.client_id === p.id
+              )
+            : (cdRes.data || []).find(
+                (r: any) => r.distributor_id === p.id
+              );
+        return {
+          partner_id: p.id,
+          partner_name: p.name,
+          is_default: cdRow?.is_default ?? false,
+          contract_type: cdRow?.contract_type ?? "allowed",
+          assignment_locked: cdRow?.assignment_locked ?? false,
+          assignment_reason: cdRow?.assignment_reason ?? null,
+        };
+      });
+    }
+
+    // Load available partners to link (opposite type, not yet linked)
+    const oppositeType =
+      partnerData.partner_type === "distributor" ? "client" : "distributor";
+    if (partnerData.partner_type !== "supplier") {
+      const { data: allOpposite } = await supabase
+        .from("partners")
+        .select("id, name")
+        .eq("partner_type", oppositeType)
+        .order("name");
+
+      const linkedIds = new Set(relatedIds);
+      setAvailablePartners(
+        (allOpposite || []).filter((p) => !linkedIds.has(p.id))
+      );
     }
 
     setPartner({
@@ -146,6 +212,91 @@ export default function PartnerDetailPage() {
     setInviting(false);
   };
 
+  const handleAddRelationship = async () => {
+    if (!selectedRelId || !partner) return;
+    setSavingRel(true);
+    setRelMsg(null);
+
+    const isDistributor = partner.partner_type === "distributor";
+    const isFirstLink = partner.clientDistributors.length === 0;
+
+    const { error } = await supabase.from("client_distributors").insert({
+      distributor_id: isDistributor ? id : selectedRelId,
+      client_id: isDistributor ? selectedRelId : id,
+      is_default: isFirstLink,
+      contract_type: newContractType,
+      assignment_locked: newAssignmentLocked,
+      assignment_reason: newAssignmentReason.trim() || null,
+    });
+
+    if (error) {
+      setRelMsg(error.message);
+    } else {
+      setSelectedRelId("");
+      setNewContractType("allowed");
+      setNewAssignmentReason("");
+      setNewAssignmentLocked(false);
+      await load();
+    }
+
+    setSavingRel(false);
+  };
+
+  const handleRemoveRelationship = async (relPartnerId: string) => {
+    if (!partner) return;
+    setSavingRel(true);
+    setRelMsg(null);
+
+    const isDistributor = partner.partner_type === "distributor";
+
+    const { error } = await supabase
+      .from("client_distributors")
+      .delete()
+      .eq(isDistributor ? "distributor_id" : "client_id", id)
+      .eq(isDistributor ? "client_id" : "distributor_id", relPartnerId);
+
+    if (error) {
+      setRelMsg(error.message);
+    } else {
+      await load();
+    }
+
+    setSavingRel(false);
+  };
+
+  const handleSetDefault = async (relPartnerId: string) => {
+    if (!partner) return;
+    setSavingRel(true);
+
+    // For a client, set is_default=false on all their distributor links, then true on the selected one
+    // For a distributor, set is_default=false on all their client links, then true on the selected one
+    const isDistributor = partner.partner_type === "distributor";
+
+    // Reset all
+    await supabase
+      .from("client_distributors")
+      .update({ is_default: false })
+      .eq(isDistributor ? "distributor_id" : "client_id", id);
+
+    // Set chosen as default
+    const { error } = await supabase
+      .from("client_distributors")
+      .update({
+        is_default: true,
+        assignment_reason: `Set as default by admin on ${new Date().toISOString().slice(0, 10)}`,
+      })
+      .eq(isDistributor ? "distributor_id" : "client_id", id)
+      .eq(isDistributor ? "client_id" : "distributor_id", relPartnerId);
+
+    if (error) {
+      setRelMsg(error.message);
+    } else {
+      await load();
+    }
+
+    setSavingRel(false);
+  };
+
   if (loading) {
     return (
       <div>
@@ -157,6 +308,13 @@ export default function PartnerDetailPage() {
   }
 
   if (!partner) return null;
+
+  const relLabel =
+    partner.partner_type === "distributor" ? "Linked Buyers" : "Linked Distributors";
+  const addLabel =
+    partner.partner_type === "distributor"
+      ? "Link a buyer..."
+      : "Link a distributor...";
 
   return (
     <div>
@@ -266,6 +424,65 @@ export default function PartnerDetailPage() {
                   {new Date(partner.created_at).toLocaleDateString("en-GB")}
                 </p>
               </div>
+
+              {partner.partner_type === "client" && (
+                <div>
+                  <p className="mc-label">Client Tier</p>
+                  <p className="text-sm">
+                    {partner.client_tier ? (
+                      <span
+                        className="text-[9px] tracking-wider uppercase px-1.5 py-0.5"
+                        style={{
+                          background: partner.client_tier === "A" ? "var(--mc-success-bg)" : partner.client_tier === "B" ? "var(--mc-warning-bg)" : "var(--mc-surface-elevated)",
+                          border: `1px solid ${partner.client_tier === "A" ? "var(--mc-success-light)" : partner.client_tier === "B" ? "var(--mc-warning-light)" : "var(--mc-border)"}`,
+                          color: partner.client_tier === "A" ? "var(--mc-success)" : partner.client_tier === "B" ? "var(--mc-warning)" : "var(--mc-text-muted)",
+                        }}
+                      >
+                        {CLIENT_TIER_LABELS[partner.client_tier as keyof typeof CLIENT_TIER_LABELS]}
+                      </span>
+                    ) : (
+                      <span style={{ color: "var(--mc-text-muted)" }}>Not set</span>
+                    )}
+                  </p>
+                </div>
+              )}
+
+              {partner.partner_type === "distributor" && (
+                <>
+                  <div>
+                    <p className="mc-label">Capacity</p>
+                    <p className="text-sm">
+                      {partner.capacity_status ? (
+                        <span
+                          className="text-[9px] tracking-wider uppercase px-1.5 py-0.5"
+                          style={{
+                            background: partner.capacity_status === "open" ? "var(--mc-success-bg)" : partner.capacity_status === "limited" ? "var(--mc-warning-bg)" : "var(--mc-error-bg)",
+                            border: `1px solid ${partner.capacity_status === "open" ? "var(--mc-success-light)" : partner.capacity_status === "limited" ? "var(--mc-warning-light)" : "var(--mc-error-light)"}`,
+                            color: partner.capacity_status === "open" ? "var(--mc-success)" : partner.capacity_status === "limited" ? "var(--mc-warning)" : "var(--mc-error)",
+                          }}
+                        >
+                          {CAPACITY_STATUS_LABELS[partner.capacity_status as keyof typeof CAPACITY_STATUS_LABELS]}
+                        </span>
+                      ) : (
+                        <span style={{ color: "var(--mc-text-muted)" }}>Not set</span>
+                      )}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="mc-label">Service Countries</p>
+                    <p className="text-sm flex items-center gap-1.5">
+                      {partner.service_countries && partner.service_countries.length > 0 ? (
+                        <>
+                          <Globe className="w-3 h-3" style={{ color: "var(--mc-text-muted)" }} />
+                          {partner.service_countries.join(", ")}
+                        </>
+                      ) : (
+                        <span style={{ color: "var(--mc-text-muted)" }}>Not set</span>
+                      )}
+                    </p>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -425,51 +642,230 @@ export default function PartnerDetailPage() {
             </div>
           )}
 
-          {/* Relationships */}
-          <div className="mc-card p-5">
-            <h3
-              className="text-xs font-semibold tracking-[0.08em] uppercase mb-4"
-              style={{ color: "var(--mc-text-muted)" }}
-            >
-              {partner.partner_type === "distributor"
-                ? "Linked Buyers"
-                : partner.partner_type === "supplier"
-                ? "Products via Distributors"
-                : "Linked Distributors"}
-              {" "}({partner.clientDistributors.length})
-            </h3>
-            {partner.clientDistributors.length === 0 ? (
-              <p className="text-xs" style={{ color: "var(--mc-text-muted)" }}>
-                No relationships configured
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {partner.clientDistributors.map((rel) => (
-                  <Link
-                    key={rel.partner_id}
-                    href={`/partners/${rel.partner_id}`}
-                    className="flex items-center gap-2 py-1.5 text-xs transition-colors"
-                    style={{ color: "var(--mc-text-secondary)" }}
-                    onMouseEnter={(e) =>
-                      (e.currentTarget.style.color = "var(--mc-cream)")
-                    }
-                    onMouseLeave={(e) =>
-                      (e.currentTarget.style.color =
-                        "var(--mc-text-secondary)")
-                    }
-                  >
-                    <Users className="w-3 h-3 flex-shrink-0" />
-                    {rel.partner_name}
-                  </Link>
-                ))}
+          {/* Relationships — interactive for distributors and clients */}
+          {partner.partner_type !== "supplier" && (
+            <div className="mc-card p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3
+                  className="text-xs font-semibold tracking-[0.08em] uppercase"
+                  style={{ color: "var(--mc-text-muted)" }}
+                >
+                  {relLabel} ({partner.clientDistributors.length})
+                </h3>
+                <Users
+                  className="w-3.5 h-3.5"
+                  style={{ color: "var(--mc-text-muted)" }}
+                />
               </div>
-            )}
-          </div>
+
+              {/* Linked partners list */}
+              {partner.clientDistributors.length === 0 ? (
+                <p
+                  className="text-xs mb-4"
+                  style={{ color: "var(--mc-text-muted)" }}
+                >
+                  No relationships configured
+                </p>
+              ) : (
+                <div className="space-y-1 mb-4">
+                  {partner.clientDistributors.map((rel) => (
+                    <div
+                      key={rel.partner_id}
+                      className="py-2 px-2 rounded-sm group"
+                      style={{ background: "var(--mc-surface-elevated)" }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 min-w-0 flex-wrap">
+                          <Link
+                            href={`/partners/${rel.partner_id}`}
+                            className="text-xs truncate transition-colors"
+                            style={{ color: "var(--mc-text-secondary)" }}
+                            onMouseEnter={(e) =>
+                              (e.currentTarget.style.color = "var(--mc-cream)")
+                            }
+                            onMouseLeave={(e) =>
+                              (e.currentTarget.style.color =
+                                "var(--mc-text-secondary)")
+                            }
+                          >
+                            {rel.partner_name}
+                          </Link>
+                          {rel.is_default && (
+                            <span
+                              className="text-[9px] tracking-wider uppercase px-1 py-0.5 flex-shrink-0"
+                              style={{
+                                background: "var(--mc-warning-bg)",
+                                border: "1px solid var(--mc-warning-light)",
+                                color: "var(--mc-warning)",
+                              }}
+                            >
+                              Default
+                            </span>
+                          )}
+                          <span
+                            className="text-[9px] tracking-wider uppercase px-1 py-0.5 flex-shrink-0"
+                            style={{
+                              background: rel.contract_type === "exclusive" ? "var(--mc-error-bg)" : rel.contract_type === "preferred" ? "var(--mc-info-bg)" : "var(--mc-surface-elevated)",
+                              border: `1px solid ${rel.contract_type === "exclusive" ? "var(--mc-error-light)" : rel.contract_type === "preferred" ? "var(--mc-info-light)" : "var(--mc-border)"}`,
+                              color: rel.contract_type === "exclusive" ? "var(--mc-error)" : rel.contract_type === "preferred" ? "var(--mc-info)" : "var(--mc-text-muted)",
+                            }}
+                          >
+                            {CONTRACT_TYPE_LABELS[rel.contract_type as keyof typeof CONTRACT_TYPE_LABELS] || rel.contract_type}
+                          </span>
+                          {rel.assignment_locked && (
+                            <span title="Assignment locked">
+                              <Lock
+                                className="w-3 h-3 flex-shrink-0"
+                                style={{ color: "var(--mc-warning)" }}
+                              />
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          {!rel.is_default && (
+                            <button
+                              onClick={() => handleSetDefault(rel.partner_id)}
+                              disabled={savingRel}
+                              title="Set as default"
+                              className="p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                              style={{ color: "var(--mc-text-muted)" }}
+                              onMouseEnter={(e) =>
+                                (e.currentTarget.style.color = "var(--mc-warning)")
+                              }
+                              onMouseLeave={(e) =>
+                                (e.currentTarget.style.color =
+                                  "var(--mc-text-muted)")
+                              }
+                            >
+                              <Star className="w-3 h-3" />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleRemoveRelationship(rel.partner_id)}
+                            disabled={savingRel}
+                            title="Remove link"
+                            className="p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                            style={{ color: "var(--mc-text-muted)" }}
+                            onMouseEnter={(e) =>
+                              (e.currentTarget.style.color = "var(--mc-error)")
+                            }
+                            onMouseLeave={(e) =>
+                              (e.currentTarget.style.color = "var(--mc-text-muted)")
+                            }
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+                      {rel.assignment_reason && (
+                        <p
+                          className="text-[10px] mt-1 pl-0.5"
+                          style={{ color: "var(--mc-text-muted)" }}
+                        >
+                          {rel.assignment_reason}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Add relationship */}
+              {availablePartners.length > 0 && (
+                <div
+                  className="pt-3 space-y-2"
+                  style={{ borderTop: "1px solid var(--mc-border)" }}
+                >
+                  <p className="mc-label">Link partner</p>
+                  <div className="flex gap-2">
+                    <select
+                      value={selectedRelId}
+                      onChange={(e) => setSelectedRelId(e.target.value)}
+                      className="mc-input mc-select flex-1"
+                    >
+                      <option value="">{addLabel}</option>
+                      {availablePartners.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={handleAddRelationship}
+                      disabled={savingRel || !selectedRelId}
+                      className="mc-btn mc-btn-primary flex-shrink-0"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  {selectedRelId && (
+                    <div className="space-y-2">
+                      <div className="flex gap-2">
+                        <select
+                          value={newContractType}
+                          onChange={(e) => setNewContractType(e.target.value as ContractType)}
+                          className="mc-input mc-select flex-1"
+                        >
+                          {CONTRACT_TYPES.map((ct) => (
+                            <option key={ct} value={ct}>
+                              {CONTRACT_TYPE_LABELS[ct]}
+                            </option>
+                          ))}
+                        </select>
+                        <label
+                          className="flex items-center gap-1.5 text-[10px] flex-shrink-0 cursor-pointer"
+                          style={{ color: "var(--mc-text-muted)" }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={newAssignmentLocked}
+                            onChange={(e) => setNewAssignmentLocked(e.target.checked)}
+                          />
+                          <Lock className="w-3 h-3" />
+                          Lock
+                        </label>
+                      </div>
+                      <input
+                        type="text"
+                        value={newAssignmentReason}
+                        onChange={(e) => setNewAssignmentReason(e.target.value)}
+                        className="mc-input"
+                        placeholder="Why this link? (optional)"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {availablePartners.length === 0 &&
+                partner.clientDistributors.length > 0 && (
+                  <p
+                    className="text-[10px] pt-3"
+                    style={{
+                      borderTop: "1px solid var(--mc-border)",
+                      color: "var(--mc-text-muted)",
+                    }}
+                  >
+                    All available{" "}
+                    {partner.partner_type === "distributor"
+                      ? "buyers"
+                      : "distributors"}{" "}
+                    are already linked.
+                  </p>
+                )}
+
+              {relMsg && (
+                <p
+                  className="text-[10px] mt-2"
+                  style={{ color: "var(--mc-error)" }}
+                >
+                  {relMsg}
+                </p>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 }
-
-
-

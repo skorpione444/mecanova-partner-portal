@@ -19,6 +19,7 @@ export type {
   PartnerType,
   ProductCategory,
   DocumentType,
+  DocumentAudience,
   InventoryStatusEnum,
   ProductAssetType,
 } from "./types";
@@ -34,9 +35,23 @@ export {
   PRODUCT_CATEGORIES,
   DOCUMENT_TYPES,
   DOCUMENT_TYPE_LABELS,
+  DOCUMENT_AUDIENCES,
+  DOCUMENT_AUDIENCE_LABELS,
+  CONTRACT_TYPES,
+  CONTRACT_TYPE_LABELS,
+  CLIENT_TIERS,
+  CLIENT_TIER_LABELS,
+  CAPACITY_STATUSES,
+  CAPACITY_STATUS_LABELS,
 } from "./constants";
 
-export type { ActiveOrderStatus } from "./constants";
+export type {
+  ActiveOrderStatus,
+  ContractType,
+  ClientTier,
+  CapacityStatus,
+} from "./constants";
+
 
 
 

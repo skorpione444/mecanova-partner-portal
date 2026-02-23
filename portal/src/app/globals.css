@@ -2,37 +2,21 @@
 
 /* ═══════════════════════════════════════════════════════════════════════
    MECANOVA PARTNER PORTAL — Design System
-   Aligned with mecanova.de brand identity
+   Same brand identity as admin, adapted for partner-facing experience
    ═══════════════════════════════════════════════════════════════════════ */
 
-/* ── Brand Color Palette ──────────────────────────────────────────────── */
 :root {
-  /* Primary — Deep darks (from mecanova.de) */
   --mc-black: #0a0b0d;
   --mc-charcoal: #111111;
   --mc-graphite: #1a1a1a;
   --mc-dark-warm: #2A2A2A;
 
-  /* Accent — Cream / Parchment (brand primary) */
   --mc-cream: #ecdfcc;
   --mc-cream-muted: #cdc9c2;
   --mc-cream-dark: #A89F91;
   --mc-cream-subtle: #7D7468;
   --mc-cream-faint: #5C5449;
 
-  /* Legacy aliases for components that still reference old names */
-  --mc-amber: #ecdfcc;
-  --mc-amber-light: #cdc9c2;
-  --mc-amber-glow: #ecdfcc;
-  --mc-copper: #A89F91;
-  --mc-gold: #cdc9c2;
-  --mc-sand: #cdc9c2;
-  --mc-sand-light: #2A2A2A;
-  --mc-cream-light: #111111;
-  --mc-warm-white: #0a0b0d;
-  --mc-terracotta: #A89F91;
-
-  /* Status — Muted, dark-adapted */
   --mc-success: #6b8f6e;
   --mc-success-light: rgba(107, 143, 110, 0.15);
   --mc-success-bg: rgba(107, 143, 110, 0.08);
@@ -46,24 +30,20 @@
   --mc-info-light: rgba(90, 138, 176, 0.15);
   --mc-info-bg: rgba(90, 138, 176, 0.08);
 
-  /* Text hierarchy */
   --mc-text-primary: #ecdfcc;
   --mc-text-secondary: #cdc9c2;
   --mc-text-tertiary: #A89F91;
   --mc-text-muted: #7D7468;
   --mc-text-inverse: #111111;
 
-  /* Borders */
   --mc-border: #2A2A2A;
   --mc-border-light: #222222;
   --mc-border-warm: #3a3a3a;
 
-  /* Surfaces */
   --mc-surface: #1a1a1a;
   --mc-surface-warm: #161616;
   --mc-surface-elevated: #1e1e1e;
 
-  /* Sidebar */
   --mc-sidebar: #0a0b0d;
   --mc-sidebar-hover: #161616;
   --mc-sidebar-active: #1a1a1a;
@@ -71,39 +51,27 @@
   --mc-sidebar-text-active: #ecdfcc;
   --mc-sidebar-border: #1a1a1a;
 
-  /* Shadows — subtle on dark */
   --mc-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.2), 0 1px 2px rgba(0, 0, 0, 0.12);
   --mc-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.25), 0 2px 4px rgba(0, 0, 0, 0.15);
   --mc-shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.3), 0 4px 8px rgba(0, 0, 0, 0.15);
-  --mc-shadow-glow: 0 0 20px rgba(236, 223, 204, 0.06);
 
-  /* Radii — Zero (sharp, architectural) */
   --mc-radius-sm: 0px;
   --mc-radius-md: 0px;
   --mc-radius-lg: 0px;
-  --mc-radius-xl: 0px;
 
-  /* Transitions */
   --mc-ease: cubic-bezier(0.25, 0.46, 0.45, 0.94);
   --mc-duration: 200ms;
   --mc-duration-slow: 400ms;
 }
 
-/* ── Tailwind v4 Theme Integration ────────────────────────────────────── */
 @theme inline {
   --color-background: var(--mc-charcoal);
   --color-foreground: var(--mc-text-primary);
   --font-heading: var(--font-jost);
   --font-sans: var(--font-manrope);
-  --font-mono: var(--font-jetbrains);
 }
 
-/* ── Base Styles ──────────────────────────────────────────────────────── */
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
+*, *::before, *::after { box-sizing: border-box; }
 
 html {
   -webkit-font-smoothing: antialiased;
@@ -118,7 +86,6 @@ body {
   line-height: 1.6;
 }
 
-/* ── Typography ───────────────────────────────────────────────────────── */
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-jost), 'Jost', system-ui, sans-serif;
   font-weight: 500;
@@ -127,125 +94,45 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--mc-text-primary);
 }
 
-/* ── Subtle Grain Texture ─────────────────────────────────────────────── */
-.mc-grain::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  opacity: 0.022;
-  pointer-events: none;
-  z-index: 9999;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
-  background-repeat: repeat;
-  background-size: 256px 256px;
-}
-
-/* ── Page Transition Animations ───────────────────────────────────────── */
+/* ── Animations ──────────────────────────────────────────────────────── */
 @keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
 }
-
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
 }
-
-@keyframes slideInLeft {
-  from {
-    opacity: 0;
-    transform: translateX(-8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
 @keyframes shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
 }
 
-@keyframes pulseWarm {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 0.7; }
-}
+.mc-animate-page { animation: fadeInUp 0.4s var(--mc-ease) both; }
+.mc-animate-fade { animation: fadeIn 0.3s var(--mc-ease) both; }
 
-@keyframes badgePop {
-  0% { transform: scale(0.9); opacity: 0; }
-  50% { transform: scale(1.05); }
-  100% { transform: scale(1); opacity: 1; }
-}
-
-.mc-animate-page {
-  animation: fadeInUp 0.5s var(--mc-ease) both;
-}
-
-.mc-animate-fade {
-  animation: fadeIn 0.4s var(--mc-ease) both;
-}
-
-.mc-animate-slide {
-  animation: slideInLeft 0.4s var(--mc-ease) both;
-}
-
-.mc-animate-badge {
-  animation: badgePop 0.3s var(--mc-ease) both;
-}
-
-/* Staggered children animation */
-.mc-stagger > * {
-  animation: fadeInUp 0.4s var(--mc-ease) both;
-}
+.mc-stagger > * { animation: fadeInUp 0.35s var(--mc-ease) both; }
 .mc-stagger > *:nth-child(1) { animation-delay: 0ms; }
-.mc-stagger > *:nth-child(2) { animation-delay: 60ms; }
-.mc-stagger > *:nth-child(3) { animation-delay: 120ms; }
-.mc-stagger > *:nth-child(4) { animation-delay: 180ms; }
-.mc-stagger > *:nth-child(5) { animation-delay: 240ms; }
-.mc-stagger > *:nth-child(6) { animation-delay: 300ms; }
+.mc-stagger > *:nth-child(2) { animation-delay: 50ms; }
+.mc-stagger > *:nth-child(3) { animation-delay: 100ms; }
+.mc-stagger > *:nth-child(4) { animation-delay: 150ms; }
+.mc-stagger > *:nth-child(5) { animation-delay: 200ms; }
+.mc-stagger > *:nth-child(6) { animation-delay: 250ms; }
 
 /* ── Skeleton Loading ─────────────────────────────────────────────────── */
 .mc-skeleton {
-  background: linear-gradient(
-    90deg,
-    var(--mc-dark-warm) 0%,
-    var(--mc-graphite) 40%,
-    var(--mc-dark-warm) 80%
-  );
+  background: linear-gradient(90deg, var(--mc-dark-warm) 0%, var(--mc-graphite) 40%, var(--mc-dark-warm) 80%);
   background-size: 200% 100%;
   animation: shimmer 1.8s ease-in-out infinite;
-  border-radius: 0;
-}
-
-.mc-pulse {
-  animation: pulseWarm 2s ease-in-out infinite;
 }
 
 /* ── Card System ──────────────────────────────────────────────────────── */
 .mc-card {
   background: var(--mc-surface);
   border: 1px solid var(--mc-border);
-  border-radius: 0;
-  box-shadow: none;
-  transition: border-color var(--mc-duration) var(--mc-ease),
-              transform var(--mc-duration) var(--mc-ease);
+  transition: border-color var(--mc-duration) var(--mc-ease);
 }
-
-.mc-card:hover {
-  border-color: var(--mc-border-warm);
-}
-
-.mc-card-lift:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--mc-shadow-md);
-}
+.mc-card:hover { border-color: var(--mc-border-warm); }
 
 /* ── Button System ────────────────────────────────────────────────────── */
 .mc-btn {
@@ -255,10 +142,9 @@ h1, h2, h3, h4, h5, h6 {
   gap: 8px;
   font-family: var(--font-manrope), 'Manrope', sans-serif;
   font-weight: 500;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   line-height: 1;
-  padding: 10px 20px;
-  border-radius: 0;
+  padding: 8px 16px;
   transition: all var(--mc-duration) var(--mc-ease);
   cursor: pointer;
   border: none;
@@ -266,119 +152,53 @@ h1, h2, h3, h4, h5, h6 {
   white-space: nowrap;
   letter-spacing: 0.02em;
 }
+.mc-btn:focus-visible { outline: 2px solid var(--mc-cream); outline-offset: 2px; }
+.mc-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-.mc-btn:focus-visible {
-  outline: 2px solid var(--mc-cream);
-  outline-offset: 2px;
-}
-
-.mc-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-/* Primary button: cream bg, dark text (matches mecanova.de CTA style) */
 .mc-btn-primary {
   background: var(--mc-cream);
   color: var(--mc-charcoal);
   border: 2px solid var(--mc-cream);
 }
-.mc-btn-primary:hover:not(:disabled) {
-  background: transparent;
-  color: var(--mc-cream);
-  border-color: var(--mc-cream);
-}
-
-/* Amber is now an alias for primary cream */
-.mc-btn-amber {
-  background: var(--mc-cream);
-  color: var(--mc-charcoal);
-  border: 2px solid var(--mc-cream);
-}
-.mc-btn-amber:hover:not(:disabled) {
-  background: transparent;
-  color: var(--mc-cream);
-  border-color: var(--mc-cream);
-}
+.mc-btn-primary:hover:not(:disabled) { background: transparent; color: var(--mc-cream); }
 
 .mc-btn-ghost {
   background: transparent;
   color: var(--mc-text-secondary);
   border: 1px solid var(--mc-border);
 }
-.mc-btn-ghost:hover:not(:disabled) {
-  border-color: var(--mc-cream-muted);
-  color: var(--mc-text-primary);
-}
-
-.mc-btn-danger {
-  background: transparent;
-  color: var(--mc-error);
-  border: 1px solid var(--mc-error-light);
-}
-.mc-btn-danger:hover:not(:disabled) {
-  background: var(--mc-error-bg);
-  border-color: var(--mc-error);
-}
-
-.mc-btn-success {
-  background: var(--mc-success);
-  color: #111111;
-  border: 2px solid var(--mc-success);
-}
-.mc-btn-success:hover:not(:disabled) {
-  background: transparent;
-  color: var(--mc-success);
-}
+.mc-btn-ghost:hover:not(:disabled) { border-color: var(--mc-cream-muted); color: var(--mc-text-primary); }
 
 /* ── Input System ─────────────────────────────────────────────────────── */
 .mc-input {
   width: 100%;
-  padding: 10px 14px;
+  padding: 8px 12px;
   font-family: var(--font-manrope), 'Manrope', sans-serif;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
   line-height: 1.5;
   color: var(--mc-text-primary);
   background: var(--mc-dark-warm);
   border: 1px solid var(--mc-border);
-  border-radius: 0;
-  transition: border-color var(--mc-duration) var(--mc-ease),
-              box-shadow var(--mc-duration) var(--mc-ease);
+  transition: border-color var(--mc-duration) var(--mc-ease);
   outline: none;
 }
-
-.mc-input::placeholder {
-  color: var(--mc-text-muted);
-}
-
-.mc-input:hover {
-  border-color: var(--mc-border-warm);
-}
-
-.mc-input:focus {
-  border-color: var(--mc-cream);
-  box-shadow: 0 0 0 1px rgba(236, 223, 204, 0.15);
-}
+.mc-input::placeholder { color: var(--mc-text-muted); }
+.mc-input:hover { border-color: var(--mc-border-warm); }
+.mc-input:focus { border-color: var(--mc-cream); box-shadow: 0 0 0 1px rgba(236, 223, 204, 0.15); }
 
 .mc-select {
   appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%237D7468' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 12px center;
-  padding-right: 36px;
+  background-position: right 10px center;
+  padding-right: 32px;
 }
 
 /* ── Table System ─────────────────────────────────────────────────────── */
-.mc-table {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-}
-
+.mc-table { width: 100%; border-collapse: separate; border-spacing: 0; }
 .mc-table thead th {
-  padding: 12px 20px;
+  padding: 10px 16px;
   text-align: left;
-  font-family: var(--font-manrope), 'Manrope', sans-serif;
   font-size: 0.6875rem;
   font-weight: 600;
   letter-spacing: 0.08em;
@@ -387,70 +207,33 @@ h1, h2, h3, h4, h5, h6 {
   background: var(--mc-graphite);
   border-bottom: 1px solid var(--mc-border);
 }
-
-.mc-table thead th:first-child {
-  border-top-left-radius: 0;
-}
-
-.mc-table thead th:last-child {
-  border-top-right-radius: 0;
-}
-
 .mc-table tbody td {
-  padding: 14px 20px;
-  font-size: 0.875rem;
+  padding: 12px 16px;
+  font-size: 0.8125rem;
   color: var(--mc-text-secondary);
   border-bottom: 1px solid var(--mc-border-light);
   transition: background var(--mc-duration) var(--mc-ease);
 }
-
-.mc-table tbody tr:last-child td {
-  border-bottom: none;
-}
-
-.mc-table tbody tr:hover td {
-  background: var(--mc-surface-elevated);
-}
-
-/* ── Scrollbar Styling ────────────────────────────────────────────────── */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--mc-dark-warm);
-  border-radius: 0;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: var(--mc-cream-faint);
-}
-
-/* ── Selection ────────────────────────────────────────────────────────── */
-::selection {
-  background: rgba(236, 223, 204, 0.2);
-  color: var(--mc-text-primary);
-}
-
-/* ── Focus Styles ─────────────────────────────────────────────────────── */
-:focus-visible {
-  outline: 2px solid var(--mc-cream);
-  outline-offset: 2px;
-}
+.mc-table tbody tr:last-child td { border-bottom: none; }
+.mc-table tbody tr:hover td { background: var(--mc-surface-elevated); }
 
 /* ── Label ────────────────────────────────────────────────────────────── */
 .mc-label {
   display: block;
-  font-family: var(--font-manrope), 'Manrope', sans-serif;
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   font-weight: 600;
   color: var(--mc-text-muted);
-  margin-bottom: 6px;
+  margin-bottom: 4px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
+
+/* ── Scrollbar ────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--mc-dark-warm); }
+::-webkit-scrollbar-thumb:hover { background: var(--mc-cream-faint); }
+
+::selection { background: rgba(236, 223, 204, 0.2); color: var(--mc-text-primary); }
+
+:focus-visible { outline: 2px solid var(--mc-cream); outline-offset: 2px; }

@@ -1,38 +1,22 @@
 import type { Metadata } from "next";
-import { Jost, Manrope, Playfair_Display, JetBrains_Mono } from "next/font/google";
+import { Jost, Manrope } from "next/font/google";
 import "./globals.css";
 
 const jost = Jost({
-  variable: "--font-jost",
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
+  variable: "--font-jost",
   display: "swap",
 });
 
 const manrope = Manrope({
+  subsets: ["latin"],
   variable: "--font-manrope",
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-  display: "swap",
-});
-
-const playfair = Playfair_Display({
-  variable: "--font-playfair",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  display: "swap",
-});
-
-const jetbrains = JetBrains_Mono({
-  variable: "--font-jetbrains",
-  subsets: ["latin"],
-  weight: ["400", "500"],
   display: "swap",
 });
 
 export const metadata: Metadata = {
   title: "Mecanova Partner Portal",
-  description: "Secure access for approved distribution and retail partners",
+  description: "Mecanova partner portal for distributors and clients",
 };
 
 export default function RootLayout({
@@ -41,12 +25,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body
-        className={`${jost.variable} ${manrope.variable} ${playfair.variable} ${jetbrains.variable} antialiased mc-grain`}
-      >
-        {children}
-      </body>
+    <html lang="en" className={`${jost.variable} ${manrope.variable}`}>
+      <body>{children}</body>
     </html>
   );
 }

@@ -42,10 +42,7 @@ export default function PageHeader({
             {title}
           </h1>
           {description && (
-            <p
-              className="text-xs mt-0.5"
-              style={{ color: "var(--mc-text-tertiary)" }}
-            >
+            <p className="text-xs mt-0.5" style={{ color: "var(--mc-text-tertiary)" }}>
               {description}
             </p>
           )}
@@ -55,7 +52,3 @@ export default function PageHeader({
     </div>
   );
 }
-
-
-
-

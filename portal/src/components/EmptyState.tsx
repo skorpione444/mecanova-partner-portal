@@ -28,23 +28,13 @@ export default function EmptyState({
           strokeWidth={1.5}
         />
       </div>
-      <h3
-        className="text-sm font-medium mb-1"
-        style={{ color: "var(--mc-text-secondary)" }}
-      >
+      <h3 className="text-sm font-medium mb-1" style={{ color: "var(--mc-text-secondary)" }}>
         {title}
       </h3>
-      <p
-        className="text-xs text-center max-w-xs mb-4"
-        style={{ color: "var(--mc-text-muted)" }}
-      >
+      <p className="text-xs text-center max-w-xs mb-4" style={{ color: "var(--mc-text-muted)" }}>
         {description}
       </p>
       {action}
     </div>
   );
 }
-
-
-
-

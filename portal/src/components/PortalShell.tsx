@@ -4,41 +4,34 @@ import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import type { UserRole } from "@/lib/supabase/types";
+import type { UserRole } from "@mecanova/shared";
 import {
   LayoutDashboard,
   Package,
-  ClipboardList,
-  ShoppingCart,
-  FilePlus,
   FileText,
+  ShoppingCart,
   LogOut,
   Menu,
   X,
+  ChevronRight,
 } from "lucide-react";
 
 interface PortalShellProps {
   children: React.ReactNode;
 }
 
-interface UserProfile {
-  role: UserRole;
-  partner_id: string | null;
-  full_name: string | null;
-}
-
-const NAV_ICONS: Record<string, React.ElementType> = {
-  "/dashboard": LayoutDashboard,
-  "/products": Package,
-  "/orders": ClipboardList,
-  "/my-orders": ShoppingCart,
-  "/orders/new": FilePlus,
-  "/documents": FileText,
-};
+const NAV_ITEMS = [
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/products", label: "Products", icon: Package },
+  { href: "/documents", label: "Documents", icon: FileText },
+  { href: "/orders", label: "Orders", icon: ShoppingCart },
+];
 
 export default function PortalShell({ children }: PortalShellProps) {
   const [email, setEmail] = useState<string | null>(null);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [fullName, setFullName] = useState<string | null>(null);
+  const [role, setRole] = useState<UserRole | null>(null);
+  const [partnerName, setPartnerName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const router = useRouter();
@@ -58,14 +51,24 @@ export default function PortalShell({ children }: PortalShellProps) {
 
       setEmail(user.email || null);
 
-      const { data: profileData } = await supabase
+      const { data: profile } = await supabase
         .from("profiles")
-        .select("role, partner_id, full_name")
+        .select("full_name, role, partner_id")
         .eq("user_id", user.id)
         .single();
 
-      if (profileData) {
-        setProfile(profileData);
+      if (profile) {
+        setFullName(profile.full_name);
+        setRole(profile.role as UserRole);
+
+        if (profile.partner_id) {
+          const { data: partner } = await supabase
+            .from("partners")
+            .select("name")
+            .eq("id", profile.partner_id)
+            .single();
+          if (partner) setPartnerName(partner.name);
+        }
       }
 
       setLoading(false);
@@ -83,66 +86,31 @@ export default function PortalShell({ children }: PortalShellProps) {
     return (
       <div
         className="min-h-screen flex items-center justify-center"
-        style={{ background: "#111111" }}
+        style={{ background: "var(--mc-charcoal)" }}
       >
         <div className="flex flex-col items-center gap-4 mc-animate-fade">
           <div
-            className="w-6 h-6 border border-transparent animate-spin"
-            style={{ borderTopColor: "#ecdfcc" }}
+            className="w-5 h-5 border border-transparent animate-spin"
+            style={{ borderTopColor: "var(--mc-cream)" }}
           />
           <p
-            className="text-xs tracking-[0.1em] uppercase"
-            style={{
-              fontFamily: "var(--font-manrope), Manrope, sans-serif",
-              color: "#5C5449",
-            }}
+            className="text-[10px] tracking-[0.1em] uppercase"
+            style={{ color: "var(--mc-cream-faint)" }}
           >
-            Loading…
+            Loading...
           </p>
         </div>
       </div>
     );
   }
 
-  // Build navigation based on role
-  const navItems: { href: string; label: string }[] = [
-    { href: "/dashboard", label: "Dashboard" },
-    { href: "/products", label: "Products" },
-  ];
-
-  if (profile?.role === "distributor" || profile?.role === "admin") {
-    navItems.push({ href: "/orders", label: "Orders" });
-  }
-
-  if (profile?.role === "client" || profile?.role === "admin") {
-    navItems.push({ href: "/my-orders", label: "My Orders" });
-  }
-
-  if (profile?.role === "client" || profile?.role === "admin") {
-    navItems.push({ href: "/orders/new", label: "New Order" });
-  }
-
-  navItems.push({ href: "/documents", label: "Documents" });
-
   const isActive = (href: string) => {
-    if (
-      href === "/orders" &&
-      pathname?.startsWith("/orders") &&
-      !pathname?.startsWith("/orders/new")
-    ) {
-      return (
-        pathname === "/orders" ||
-        pathname?.match(/^\/orders\/[^/]+$/) !== null
-      );
-    }
-    if (href === "/my-orders") {
-      return pathname?.startsWith("/my-orders") || false;
-    }
-    return pathname === href;
+    if (href === "/dashboard") return pathname === "/dashboard";
+    return pathname?.startsWith(href) || false;
   };
 
-  const displayName = profile?.full_name || email || "User";
-  const initials = (profile?.full_name || email || "U")
+  const displayName = fullName || email || "User";
+  const initials = (fullName || email || "U")
     .split(/[\s@]/)
     .filter(Boolean)
     .slice(0, 2)
@@ -150,201 +118,146 @@ export default function PortalShell({ children }: PortalShellProps) {
     .join("");
 
   const roleLabel =
-    profile?.role === "distributor"
+    role === "distributor"
       ? "Distributor"
-      : profile?.role === "client"
+      : role === "client"
       ? "Buyer"
-      : profile?.role === "admin"
-      ? "Admin"
-      : "Partner";
+      : role === "partner"
+      ? "Partner"
+      : role || "";
 
   return (
-    <div className="min-h-screen" style={{ background: "#111111" }}>
+    <div className="min-h-screen" style={{ background: "var(--mc-charcoal)" }}>
       {/* Mobile top bar */}
       <div
-        className="lg:hidden flex items-center justify-between px-5 py-4"
+        className="lg:hidden flex items-center justify-between px-4 py-3"
         style={{
-          background: "#0a0b0d",
-          borderBottom: "1px solid #1a1a1a",
+          background: "var(--mc-black)",
+          borderBottom: "1px solid var(--mc-sidebar-border)",
         }}
       >
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="p-1.5 transition-colors"
-          style={{ color: "#A89F91" }}
+          className="p-1.5"
+          style={{ color: "var(--mc-sidebar-text)" }}
           aria-label="Toggle menu"
         >
-          {sidebarOpen ? (
-            <X className="w-5 h-5" strokeWidth={1.5} />
-          ) : (
-            <Menu className="w-5 h-5" strokeWidth={1.5} />
-          )}
+          {sidebarOpen ? <X className="w-5 h-5" strokeWidth={1.5} /> : <Menu className="w-5 h-5" strokeWidth={1.5} />}
         </button>
         <span
-          className="text-sm font-light tracking-[0.2em] uppercase"
-          style={{
-            fontFamily: "var(--font-jost), Jost, sans-serif",
-            color: "#ecdfcc",
-          }}
+          className="text-xs font-light tracking-[0.2em] uppercase"
+          style={{ fontFamily: "var(--font-jost), Jost, sans-serif", color: "var(--mc-cream)" }}
         >
           Mecanova
         </span>
         <div className="w-8" />
       </div>
 
-      {/* Mobile overlay */}
       {sidebarOpen && (
         <div
-          className="lg:hidden fixed inset-0 z-40 transition-opacity"
+          className="lg:hidden fixed inset-0 z-40"
           style={{ background: "rgba(10, 11, 13, 0.8)" }}
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       <div className="flex">
-        {/* Sidebar */}
         <aside
-          className={`fixed lg:sticky lg:top-0 inset-y-0 left-0 z-50 w-[240px] h-screen transform ${
-            sidebarOpen
-              ? "translate-x-0"
-              : "-translate-x-full lg:translate-x-0"
-          } transition-transform duration-300 ease-in-out`}
+          className={`fixed lg:sticky lg:top-0 inset-y-0 left-0 z-50 w-[220px] h-screen transform ${
+            sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+          } transition-transform duration-300 ease-in-out overflow-y-auto`}
           style={{
-            background: "#0a0b0d",
-            borderRight: "1px solid #1a1a1a",
+            background: "var(--mc-sidebar)",
+            borderRight: "1px solid var(--mc-sidebar-border)",
           }}
         >
           <div className="h-full flex flex-col">
-            {/* Brand */}
-            <div
-              className="px-6 py-6"
-              style={{ borderBottom: "1px solid #1a1a1a" }}
-            >
-              <div>
-                <h1
-                  className="text-sm font-light tracking-[0.25em] uppercase"
-                  style={{
-                    fontFamily: "var(--font-jost), Jost, sans-serif",
-                    color: "#ecdfcc",
-                  }}
-                >
-                  Mecanova
-                </h1>
-                <p
-                  className="text-[9px] tracking-[0.15em] uppercase mt-1"
-                  style={{ color: "#5C5449" }}
-                >
-                  Partner Portal
-                </p>
-              </div>
+            <div className="px-5 py-5 flex-shrink-0" style={{ borderBottom: "1px solid var(--mc-sidebar-border)" }}>
+              <h1
+                className="text-xs font-light tracking-[0.25em] uppercase"
+                style={{ fontFamily: "var(--font-jost), Jost, sans-serif", color: "var(--mc-cream)" }}
+              >
+                Mecanova
+              </h1>
+              <p className="text-[8px] tracking-[0.12em] uppercase mt-0.5" style={{ color: "var(--mc-cream-faint)" }}>
+                Partner Portal
+              </p>
             </div>
 
-            {/* Navigation */}
-            <nav className="flex-1 px-3 py-5 space-y-0.5 overflow-y-auto">
-              {navItems.map((item) => {
-                const Icon = NAV_ICONS[item.href] || FileText;
+            <nav className="flex-1 py-3 overflow-y-auto">
+              <p className="px-5 py-1.5 text-[9px] font-semibold tracking-[0.1em] uppercase" style={{ color: "var(--mc-cream-faint)" }}>
+                Navigation
+              </p>
+              {NAV_ITEMS.map((item) => {
+                const Icon = item.icon;
                 const active = isActive(item.href);
                 return (
                   <Link
                     key={item.href}
                     href={item.href}
                     onClick={() => setSidebarOpen(false)}
-                    className="group flex items-center gap-3 px-3 py-2.5 text-[13px] transition-all duration-200 relative"
+                    className="group flex items-center gap-2.5 mx-2 px-3 py-2 text-[12px] transition-all duration-200 relative"
                     style={{
-                      background: active ? "#1a1a1a" : "transparent",
-                      color: active ? "#ecdfcc" : "#7D7468",
-                      borderLeft: active
-                        ? "2px solid #ecdfcc"
-                        : "2px solid transparent",
+                      background: active ? "var(--mc-sidebar-active)" : "transparent",
+                      color: active ? "var(--mc-sidebar-text-active)" : "var(--mc-sidebar-text)",
+                      borderLeft: active ? "2px solid var(--mc-cream)" : "2px solid transparent",
                     }}
                     onMouseEnter={(e) => {
                       if (!active) {
-                        e.currentTarget.style.color = "#cdc9c2";
-                        e.currentTarget.style.background = "#111111";
+                        e.currentTarget.style.color = "var(--mc-cream-muted)";
+                        e.currentTarget.style.background = "var(--mc-sidebar-hover)";
                       }
                     }}
                     onMouseLeave={(e) => {
                       if (!active) {
-                        e.currentTarget.style.color = "#7D7468";
+                        e.currentTarget.style.color = "var(--mc-sidebar-text)";
                         e.currentTarget.style.background = "transparent";
                       }
                     }}
                   >
-                    <Icon
-                      className="w-[16px] h-[16px] flex-shrink-0"
-                      strokeWidth={active ? 2 : 1.5}
-                    />
-                    <span
-                      className="font-medium tracking-wide"
-                      style={{
-                        fontFamily: "var(--font-manrope), Manrope, sans-serif",
-                      }}
-                    >
+                    <Icon className="w-[14px] h-[14px] flex-shrink-0" strokeWidth={active ? 2 : 1.5} />
+                    <span className="font-medium tracking-wide flex-1" style={{ fontFamily: "var(--font-manrope), Manrope, sans-serif" }}>
                       {item.label}
                     </span>
+                    {active && <ChevronRight className="w-3 h-3 opacity-40" strokeWidth={2} />}
                   </Link>
                 );
               })}
             </nav>
 
-            {/* User section */}
-            <div
-              className="px-4 py-4"
-              style={{ borderTop: "1px solid #1a1a1a" }}
-            >
-              <div className="flex items-center gap-3 px-2 mb-3">
-                {/* Avatar */}
+            <div className="px-4 py-3 flex-shrink-0" style={{ borderTop: "1px solid var(--mc-sidebar-border)" }}>
+              <div className="flex items-center gap-2.5 px-1 mb-2">
                 <div
-                  className="w-8 h-8 flex items-center justify-center flex-shrink-0 text-[10px] font-semibold tracking-wider"
-                  style={{
-                    background: "#1a1a1a",
-                    color: "#A89F91",
-                    border: "1px solid #2A2A2A",
-                  }}
+                  className="w-7 h-7 flex items-center justify-center flex-shrink-0 text-[9px] font-semibold tracking-wider"
+                  style={{ background: "var(--mc-graphite)", color: "var(--mc-cream-dark)", border: "1px solid var(--mc-border)" }}
                 >
                   {initials}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p
-                    className="text-xs font-medium truncate"
-                    style={{ color: "#cdc9c2" }}
-                  >
+                  <p className="text-[11px] font-medium truncate" style={{ color: "var(--mc-cream-muted)" }}>
                     {displayName}
                   </p>
-                  <p
-                    className="text-[10px] truncate tracking-wide uppercase"
-                    style={{ color: "#5C5449" }}
-                  >
-                    {roleLabel}
+                  <p className="text-[9px] truncate tracking-wide uppercase" style={{ color: "var(--mc-cream-faint)" }}>
+                    {roleLabel}{partnerName ? ` · ${partnerName}` : ""}
                   </p>
                 </div>
               </div>
               <button
                 onClick={handleLogout}
-                className="flex items-center gap-2.5 w-full px-3 py-2 text-xs transition-all duration-200 tracking-wide"
-                style={{
-                  color: "#7D7468",
-                  fontFamily: "var(--font-manrope), Manrope, sans-serif",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "#111111";
-                  e.currentTarget.style.color = "#c45a5a";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "transparent";
-                  e.currentTarget.style.color = "#7D7468";
-                }}
+                className="flex items-center gap-2 w-full px-2 py-1.5 text-[11px] transition-all duration-200 tracking-wide"
+                style={{ color: "var(--mc-sidebar-text)" }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = "var(--mc-sidebar-hover)"; e.currentTarget.style.color = "var(--mc-error)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--mc-sidebar-text)"; }}
               >
-                <LogOut className="w-[15px] h-[15px]" strokeWidth={1.5} />
+                <LogOut className="w-[13px] h-[13px]" strokeWidth={1.5} />
                 Sign out
               </button>
             </div>
           </div>
         </aside>
 
-        {/* Main content */}
         <main className="flex-1 min-w-0 min-h-screen">
-          <div className="max-w-6xl mx-auto px-6 lg:px-10 py-8 lg:py-10">
+          <div className="max-w-7xl mx-auto px-5 lg:px-8 py-6 lg:py-8">
             <div className="mc-animate-page">{children}</div>
           </div>
         </main>

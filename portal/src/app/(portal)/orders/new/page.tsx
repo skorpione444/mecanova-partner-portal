@@ -1,51 +1,49 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
-import type { Product } from "@/lib/supabase/types";
-import {
-  Send,
-  Plus,
-  Trash2,
-  CheckCircle2,
-  Package,
-  MessageSquare,
-  Building2,
-} from "lucide-react";
+import Link from "next/link";
+import PageHeader from "@/components/PageHeader";
+import { ShoppingCart, ArrowLeft, Plus, Minus, Trash2 } from "lucide-react";
 
 interface Distributor {
   id: string;
   name: string;
   is_default: boolean;
+  contract_type: string;
 }
 
-interface OrderItem {
+interface AvailableProduct {
+  id: string;
+  name: string;
+  brand: string | null;
+  category: string;
+  sku: string | null;
+  size_ml: number | null;
+}
+
+interface OrderLine {
   product_id: string;
-  quantity: number;
+  product_name: string;
+  cases_qty: number;
 }
 
 export default function NewOrderPage() {
-  const [products, setProducts] = useState<Pick<Product, "id" | "name">[]>([]);
-  const [distributors, setDistributors] = useState<Distributor[]>([]);
   const [loading, setLoading] = useState(true);
+  const [distributors, setDistributors] = useState<Distributor[]>([]);
+  const [selectedDistributor, setSelectedDistributor] = useState<Distributor | null>(null);
+  const [products, setProducts] = useState<AvailableProduct[]>([]);
+  const [lines, setLines] = useState<OrderLine[]>([]);
+  const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
   const router = useRouter();
   const supabase = createClient();
 
-  const [distributorId, setDistributorId] = useState("");
-  const [notes, setNotes] = useState("");
-  const [items, setItems] = useState<OrderItem[]>([
-    { product_id: "", quantity: 1 },
-  ]);
-
   useEffect(() => {
     const load = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
       const { data: profile } = await supabase
@@ -54,115 +52,121 @@ export default function NewOrderPage() {
         .eq("user_id", user.id)
         .single();
 
-      if (!profile || (profile.role !== "client" && profile.role !== "admin")) {
-        router.push("/dashboard");
+      if (!profile || profile.role !== "client" || !profile.partner_id) {
+        router.push("/orders");
         return;
       }
 
-      const { data: prods } = await supabase
-        .from("products")
+      const { data: cd } = await supabase
+        .from("client_distributors")
+        .select("distributor_id, is_default, contract_type")
+        .eq("client_id", profile.partner_id);
+
+      if (!cd || cd.length === 0) {
+        setError("No distributor has been assigned to your account. Please contact your account manager.");
+        setLoading(false);
+        return;
+      }
+
+      const distIds = cd.map((c) => c.distributor_id);
+      const { data: distPartners } = await supabase
+        .from("partners")
         .select("id, name")
-        .eq("active", true)
-        .order("name");
+        .in("id", distIds);
 
-      if (prods) setProducts(prods);
+      const dists: Distributor[] = (distPartners || []).map((dp) => {
+        const rel = cd.find((c) => c.distributor_id === dp.id);
+        return {
+          id: dp.id,
+          name: dp.name,
+          is_default: rel?.is_default || false,
+          contract_type: rel?.contract_type || "allowed",
+        };
+      });
 
-      if (profile.partner_id) {
-        const { data: cdData } = await supabase
-          .from("client_distributors")
-          .select("distributor_id, is_default")
-          .eq("client_id", profile.partner_id);
+      setDistributors(dists);
 
-        if (cdData && cdData.length > 0) {
-          const distIds = cdData.map((cd) => cd.distributor_id);
-          const { data: partners } = await supabase
-            .from("partners")
-            .select("id, name")
-            .in("id", distIds);
+      const defaultDist = dists.find((d) => d.is_default) || dists[0];
+      setSelectedDistributor(defaultDist);
 
-          const partnerMap = new Map<string, string>();
-          partners?.forEach((p) => partnerMap.set(p.id, p.name));
+      if (defaultDist) {
+        const { data: inv } = await supabase
+          .from("inventory_status")
+          .select("product_id")
+          .eq("distributor_id", defaultDist.id);
 
-          const distList: Distributor[] = cdData.map((cd) => ({
-            id: cd.distributor_id,
-            name: partnerMap.get(cd.distributor_id) || cd.distributor_id,
-            is_default: cd.is_default,
-          }));
-
-          setDistributors(distList);
-
-          const def = distList.find((d) => d.is_default) || distList[0];
-          if (def) setDistributorId(def.id);
+        const productIds = (inv || []).map((i) => i.product_id);
+        if (productIds.length > 0) {
+          const { data: prods } = await supabase
+            .from("products")
+            .select("id, name, brand, category, sku, size_ml")
+            .eq("active", true)
+            .in("id", productIds)
+            .order("name");
+          setProducts(prods || []);
         }
       }
 
       setLoading(false);
     };
-
     load();
-  }, [supabase, router]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const addItem = () =>
-    setItems([...items, { product_id: "", quantity: 1 }]);
-
-  const removeItem = (idx: number) => {
-    if (items.length > 1) setItems(items.filter((_, i) => i !== idx));
+  const addLine = (product: AvailableProduct) => {
+    if (lines.find((l) => l.product_id === product.id)) return;
+    setLines([...lines, { product_id: product.id, product_name: product.name, cases_qty: 1 }]);
   };
 
-  const updateItem = (
-    idx: number,
-    field: keyof OrderItem,
-    value: string | number
-  ) => {
-    const copy = [...items];
-    copy[idx] = { ...copy[idx], [field]: value };
-    setItems(copy);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setSubmitting(true);
-
-    const validItems = items.filter((i) => i.product_id && i.quantity > 0);
-
-    if (validItems.length === 0) {
-      setError("Add at least one product with a valid quantity.");
-      setSubmitting(false);
-      return;
-    }
-
-    if (!distributorId) {
-      setError("Please select a distributor.");
-      setSubmitting(false);
-      return;
-    }
-
-    const { data: orderId, error: createErr } = await supabase.rpc(
-      "create_order",
-      { p_distributor_id: distributorId }
+  const updateQty = (productId: string, delta: number) => {
+    setLines(
+      lines.map((l) =>
+        l.product_id === productId
+          ? { ...l, cases_qty: Math.max(1, l.cases_qty + delta) }
+          : l
+      )
     );
+  };
+
+  const removeLine = (productId: string) => {
+    setLines(lines.filter((l) => l.product_id !== productId));
+  };
+
+  const handleSubmit = async () => {
+    if (!selectedDistributor || lines.length === 0) return;
+    setSubmitting(true);
+    setError(null);
+
+    const { data: orderId, error: createErr } = await supabase.rpc("create_order", {
+      p_distributor_id: selectedDistributor.id,
+    });
 
     if (createErr || !orderId) {
-      setError(createErr?.message || "Failed to create order.");
+      setError(createErr?.message || "Failed to create order");
       setSubmitting(false);
       return;
     }
 
-    const { error: itemsErr } = await supabase
-      .from("order_request_items")
-      .insert(
-        validItems.map((i) => ({
+    for (const line of lines) {
+      const { error: itemErr } = await supabase
+        .from("order_request_items")
+        .insert({
           order_request_id: orderId,
-          product_id: i.product_id,
-          cases_qty: i.quantity,
-        }))
-      );
+          product_id: line.product_id,
+          cases_qty: line.cases_qty,
+        });
+      if (itemErr) {
+        setError(itemErr.message);
+        setSubmitting(false);
+        return;
+      }
+    }
 
-    if (itemsErr) {
-      setError(`Failed to add items: ${itemsErr.message}`);
-      setSubmitting(false);
-      return;
+    if (notes.trim()) {
+      await supabase
+        .from("order_requests")
+        .update({ notes: notes.trim() })
+        .eq("id", orderId);
     }
 
     const { error: submitErr } = await supabase.rpc("submit_order", {
@@ -170,285 +174,233 @@ export default function NewOrderPage() {
     });
 
     if (submitErr) {
-      setError(`Failed to submit order: ${submitErr.message}`);
+      setError(submitErr.message);
       setSubmitting(false);
       return;
     }
 
-    setSuccess(true);
-    setTimeout(() => router.push("/my-orders"), 1500);
+    router.push("/orders");
   };
 
   if (loading) {
     return (
-      <div className="space-y-8">
-        <div>
-          <div className="mc-skeleton h-8 w-48 mb-3" />
-          <div className="mc-skeleton h-5 w-72" />
-        </div>
-        <div className="mc-card p-6 space-y-4">
-          <div className="mc-skeleton h-11 w-72" />
-          <div className="mc-skeleton h-20 w-full" />
-        </div>
-      </div>
-    );
-  }
-
-  if (success) {
-    return (
-      <div className="mc-card p-16 text-center mc-animate-page">
-        <div
-          className="w-14 h-14 flex items-center justify-center mx-auto mb-5"
-          style={{
-            background: "var(--mc-success-bg)",
-            color: "var(--mc-success)",
-          }}
-        >
-          <CheckCircle2 className="w-7 h-7" strokeWidth={1.5} />
-        </div>
-        <p
-          className="text-xl font-semibold mb-2"
-          style={{
-            fontFamily: "var(--font-jost), sans-serif",
-            color: "var(--mc-text-primary)",
-          }}
-        >
-          Order Submitted
-        </p>
-        <p className="text-sm" style={{ color: "var(--mc-text-tertiary)" }}>
-          Your order has been submitted for review. Redirecting…
-        </p>
+      <div>
+        <div className="mc-skeleton h-6 w-48 mb-6" />
+        <div className="mc-skeleton h-64 max-w-2xl" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div>
-        <h1
-          className="text-3xl font-semibold tracking-tight"
-          style={{
-            fontFamily: "var(--font-jost), sans-serif",
-            color: "var(--mc-text-primary)",
-          }}
-        >
-          New Order Request
-        </h1>
-        <p
-          className="mt-2 text-sm"
-          style={{
-            color: "var(--mc-text-tertiary)",
-            fontFamily: "var(--font-manrope), sans-serif",
-          }}
-        >
-          Submit a new order for review by your distributor
-        </p>
-      </div>
+    <div>
+      <Link
+        href="/orders"
+        className="inline-flex items-center gap-1.5 text-[11px] tracking-wide mb-4 transition-colors"
+        style={{ color: "var(--mc-text-muted)" }}
+        onMouseEnter={(e) => (e.currentTarget.style.color = "var(--mc-cream)")}
+        onMouseLeave={(e) => (e.currentTarget.style.color = "var(--mc-text-muted)")}
+      >
+        <ArrowLeft className="w-3 h-3" />
+        Back to Orders
+      </Link>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Distributor & Notes */}
-        <div className="mc-card p-6 space-y-5">
-          {distributors.length > 0 && (
-            <div>
-              <label className="mc-label flex items-center gap-2">
-                <Building2
-                  className="w-3.5 h-3.5"
-                  style={{ color: "var(--mc-text-muted)" }}
-                  strokeWidth={1.5}
-                />
-                Distributor
-              </label>
-              <select
-                value={distributorId}
-                onChange={(e) => setDistributorId(e.target.value)}
-                required
-                className="mc-input mc-select max-w-md"
+      <PageHeader title="New Order" description="Create a new order request" icon={ShoppingCart} />
+
+      {error && (
+        <div
+          className="mb-5 px-4 py-3 text-xs"
+          style={{
+            background: "var(--mc-error-bg)",
+            border: "1px solid var(--mc-error-light)",
+            color: "var(--mc-error)",
+          }}
+        >
+          {error}
+        </div>
+      )}
+
+      <div className="max-w-3xl space-y-5">
+        {/* Distributor — READ ONLY for clients */}
+        <div className="mc-card p-5">
+          <h3
+            className="text-xs font-semibold tracking-[0.08em] uppercase mb-3"
+            style={{ color: "var(--mc-text-muted)" }}
+          >
+            Distributor
+          </h3>
+          {selectedDistributor ? (
+            <div className="flex items-center gap-3">
+              <div
+                className="w-8 h-8 flex items-center justify-center text-[10px] font-semibold"
+                style={{
+                  background: "rgba(236, 223, 204, 0.06)",
+                  border: "1px solid var(--mc-border)",
+                  color: "var(--mc-cream-dark)",
+                }}
               >
-                <option value="">Select distributor</option>
-                {distributors.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
-              </select>
+                {selectedDistributor.name.charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <p className="text-sm font-medium" style={{ color: "var(--mc-text-primary)" }}>
+                  {selectedDistributor.name}
+                </p>
+                <p className="text-[10px] tracking-wide uppercase" style={{ color: "var(--mc-text-muted)" }}>
+                  {selectedDistributor.contract_type} distributor
+                  {selectedDistributor.is_default && " · Default"}
+                </p>
+              </div>
             </div>
+          ) : (
+            <p className="text-xs" style={{ color: "var(--mc-text-muted)" }}>
+              No distributor assigned
+            </p>
           )}
-          <div>
-            <label className="mc-label flex items-center gap-2">
-              <MessageSquare
-                className="w-3.5 h-3.5"
-                style={{ color: "var(--mc-text-muted)" }}
-                strokeWidth={1.5}
-              />
-              Notes
-              <span
-                className="font-normal"
-                style={{ color: "var(--mc-text-muted)" }}
-              >
-                (optional)
-              </span>
-            </label>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={3}
-              className="mc-input resize-none"
-              placeholder="Special requirements or delivery notes…"
-            />
-          </div>
+          {distributors.length > 1 && (
+            <p className="text-[10px] mt-2" style={{ color: "var(--mc-text-muted)" }}>
+              Your account has {distributors.length} assigned distributors.
+              Contact your account manager to change the default.
+            </p>
+          )}
         </div>
 
-        {/* Order Items */}
-        <div className="mc-card p-6">
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-2">
-              <Package
-                className="w-4 h-4"
-                style={{ color: "var(--mc-text-tertiary)" }}
-                strokeWidth={1.5}
-              />
-              <h2
-                className="text-base font-semibold"
-                style={{
-                  fontFamily: "var(--font-jost), sans-serif",
-                  color: "var(--mc-text-primary)",
-                }}
-              >
-                Order Items
-              </h2>
-            </div>
-            <button
-              type="button"
-              onClick={addItem}
-              className="mc-btn mc-btn-ghost py-1.5 px-3 text-xs"
-            >
-              <Plus className="w-3.5 h-3.5" strokeWidth={2} />
-              Add Item
-            </button>
-          </div>
-
-          <div className="space-y-3">
-            {items.map((item, idx) => (
-              <div
-                key={idx}
-                className="flex gap-3 items-end p-3 transition-colors duration-200"
-                style={{
-                  background: "var(--mc-muted)",
-                  border: "1px solid var(--mc-border)",
-                }}
-              >
-                <div className="flex-1">
-                  {idx === 0 && (
-                    <label className="mc-label text-xs">Product</label>
-                  )}
-                  <select
-                    value={item.product_id}
-                    onChange={(e) =>
-                      updateItem(idx, "product_id", e.target.value)
-                    }
-                    required
-                    className="mc-input mc-select"
-                  >
-                    <option value="">Select product</option>
-                    {products.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="w-28">
-                  {idx === 0 && (
-                    <label className="mc-label text-xs">Cases</label>
-                  )}
-                  <input
-                    type="number"
-                    min="1"
-                    value={item.quantity}
-                    onChange={(e) =>
-                      updateItem(
-                        idx,
-                        "quantity",
-                        parseInt(e.target.value) || 1
-                      )
-                    }
-                    required
-                    className="mc-input text-center"
-                    style={{
-                      fontFamily: "var(--font-jetbrains), monospace",
-                    }}
-                  />
-                </div>
-                {items.length > 1 && (
+        {/* Product selection */}
+        <div className="mc-card p-5">
+          <h3
+            className="text-xs font-semibold tracking-[0.08em] uppercase mb-3"
+            style={{ color: "var(--mc-text-muted)" }}
+          >
+            Add Products
+          </h3>
+          {products.length === 0 ? (
+            <p className="text-xs" style={{ color: "var(--mc-text-muted)" }}>
+              No products available from this distributor.
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {products
+                .filter((p) => !lines.find((l) => l.product_id === p.id))
+                .map((product) => (
                   <button
-                    type="button"
-                    onClick={() => removeItem(idx)}
-                    className="mc-btn p-2.5 transition-colors duration-200"
+                    key={product.id}
+                    onClick={() => addLine(product)}
+                    className="flex items-center gap-3 p-3 text-left transition-all"
                     style={{
-                      color: "var(--mc-text-muted)",
-                      background: "transparent",
+                      background: "var(--mc-surface-warm)",
+                      border: "1px solid var(--mc-border-light)",
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.color = "var(--mc-error)";
-                      e.currentTarget.style.background = "var(--mc-error-bg)";
+                      e.currentTarget.style.borderColor = "var(--mc-cream-faint)";
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.color = "var(--mc-text-muted)";
-                      e.currentTarget.style.background = "transparent";
+                      e.currentTarget.style.borderColor = "var(--mc-border-light)";
                     }}
-                    title="Remove item"
                   >
-                    <Trash2 className="w-4 h-4" strokeWidth={1.5} />
+                    <Plus className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--mc-cream-subtle)" }} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium truncate" style={{ color: "var(--mc-text-primary)" }}>
+                        {product.name}
+                      </p>
+                      <p className="text-[10px]" style={{ color: "var(--mc-text-muted)" }}>
+                        {product.brand || product.category}
+                        {product.size_ml ? ` · ${product.size_ml}ml` : ""}
+                      </p>
+                    </div>
                   </button>
-                )}
-              </div>
-            ))}
-          </div>
+                ))}
+            </div>
+          )}
         </div>
 
-        {/* Error */}
-        {error && (
-          <div
-            className="mc-card p-4 mc-animate-fade"
-            style={{
-              background: "var(--mc-error-bg)",
-              borderColor: "var(--mc-error)",
-              color: "var(--mc-error)",
-            }}
-          >
-            <span className="text-sm">{error}</span>
+        {/* Order lines */}
+        {lines.length > 0 && (
+          <div className="mc-card p-5">
+            <h3
+              className="text-xs font-semibold tracking-[0.08em] uppercase mb-3"
+              style={{ color: "var(--mc-text-muted)" }}
+            >
+              Order Items ({lines.length})
+            </h3>
+            <div className="space-y-2">
+              {lines.map((line) => (
+                <div
+                  key={line.product_id}
+                  className="flex items-center gap-3 px-3 py-2"
+                  style={{
+                    background: "var(--mc-surface-warm)",
+                    border: "1px solid var(--mc-border-light)",
+                  }}
+                >
+                  <span className="text-xs font-medium flex-1" style={{ color: "var(--mc-text-primary)" }}>
+                    {line.product_name}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => updateQty(line.product_id, -1)}
+                      className="w-6 h-6 flex items-center justify-center"
+                      style={{ background: "var(--mc-dark-warm)", border: "1px solid var(--mc-border)" }}
+                    >
+                      <Minus className="w-3 h-3" style={{ color: "var(--mc-text-muted)" }} />
+                    </button>
+                    <span className="text-xs w-8 text-center font-mono" style={{ color: "var(--mc-text-primary)" }}>
+                      {line.cases_qty}
+                    </span>
+                    <button
+                      onClick={() => updateQty(line.product_id, 1)}
+                      className="w-6 h-6 flex items-center justify-center"
+                      style={{ background: "var(--mc-dark-warm)", border: "1px solid var(--mc-border)" }}
+                    >
+                      <Plus className="w-3 h-3" style={{ color: "var(--mc-text-muted)" }} />
+                    </button>
+                  </div>
+                  <span className="text-[10px] w-16 text-right" style={{ color: "var(--mc-text-muted)" }}>
+                    {line.cases_qty} {line.cases_qty === 1 ? "case" : "cases"}
+                  </span>
+                  <button
+                    onClick={() => removeLine(line.product_id)}
+                    className="text-[11px] transition-colors"
+                    style={{ color: "var(--mc-text-muted)" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = "var(--mc-error)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = "var(--mc-text-muted)")}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
-        {/* Actions */}
+        {/* Notes */}
+        <div className="mc-card p-5">
+          <h3
+            className="text-xs font-semibold tracking-[0.08em] uppercase mb-3"
+            style={{ color: "var(--mc-text-muted)" }}
+          >
+            Notes (optional)
+          </h3>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            className="mc-input"
+            rows={3}
+            placeholder="Any special instructions..."
+          />
+        </div>
+
+        {/* Submit */}
         <div className="flex gap-3">
           <button
-            type="submit"
-            disabled={submitting}
-            className="mc-btn mc-btn-amber gap-2"
+            onClick={handleSubmit}
+            disabled={submitting || lines.length === 0 || !selectedDistributor}
+            className="mc-btn mc-btn-primary"
           >
-            {submitting ? (
-              <>
-                <span className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
-                Submitting…
-              </>
-            ) : (
-              <>
-                <Send className="w-4 h-4" strokeWidth={1.5} />
-                Submit Order
-              </>
-            )}
+            {submitting ? "Submitting..." : "Submit Order"}
           </button>
-          <button
-            type="button"
-            onClick={() => router.push("/dashboard")}
-            className="mc-btn mc-btn-ghost"
-          >
+          <Link href="/orders" className="mc-btn mc-btn-ghost">
             Cancel
-          </button>
+          </Link>
         </div>
-      </form>
+      </div>
     </div>
   );
 }

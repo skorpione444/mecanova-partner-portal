@@ -5,8 +5,13 @@ import { createClient } from "@/lib/supabase/client";
 import PageHeader from "@/components/PageHeader";
 import EmptyState from "@/components/EmptyState";
 import type { Document as DocRow, Partner, Product } from "@mecanova/shared";
-import { DOCUMENT_TYPES, DOCUMENT_TYPE_LABELS } from "@mecanova/shared";
-import type { DocumentType } from "@mecanova/shared";
+import {
+  DOCUMENT_TYPES,
+  DOCUMENT_TYPE_LABELS,
+  DOCUMENT_AUDIENCES,
+  DOCUMENT_AUDIENCE_LABELS,
+} from "@mecanova/shared";
+import type { DocumentType, DocumentAudience } from "@mecanova/shared";
 import {
   FileText,
   Search,
@@ -16,11 +21,21 @@ import {
   Trash2,
   Eye,
   EyeOff,
+  Star,
+  Shield,
 } from "lucide-react";
 
 type DocRowEnriched = DocRow & {
   partner_name: string | null;
   product_name: string | null;
+  download_url: string | null;
+};
+
+const AUDIENCE_COLORS: Record<DocumentAudience, string> = {
+  all: "var(--mc-success)",
+  distributor: "var(--mc-info)",
+  client: "var(--mc-warning)",
+  internal: "var(--mc-error)",
 };
 
 export default function DocumentsPage() {
@@ -28,14 +43,16 @@ export default function DocumentsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [audienceFilter, setAudienceFilter] = useState<string>("all");
   const [showUpload, setShowUpload] = useState(false);
 
-  // Upload form state
   const [title, setTitle] = useState("");
-  const [docType, setDocType] = useState<DocumentType>("compliance");
+  const [docType, setDocType] = useState<DocumentType>("presentation");
+  const [audience, setAudience] = useState<DocumentAudience>("all");
   const [partnerId, setPartnerId] = useState("");
   const [productId, setProductId] = useState("");
-  const [isShared, setIsShared] = useState(false);
+  const [isShared, setIsShared] = useState(true);
+  const [isHighlight, setIsHighlight] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -64,14 +81,25 @@ export default function DocumentsPage() {
     const partnerMap = new Map(allPartners.map((p) => [p.id, p.name]));
     const productMap = new Map(allProducts.map((p) => [p.id, p.name]));
 
-    setDocuments(
-      docs.map((d) => ({
-        ...d,
-        partner_name: d.partner_id ? partnerMap.get(d.partner_id) || null : null,
-        product_name: d.product_id ? productMap.get(d.product_id) || null : null,
-      }))
+    const enriched = await Promise.all(
+      docs.map(async (d) => {
+        let download_url: string | null = null;
+        if (d.file_path) {
+          const { data: signedData } = await supabase.storage
+            .from("documents")
+            .createSignedUrl(d.file_path, 3600);
+          download_url = signedData?.signedUrl || null;
+        }
+        return {
+          ...d,
+          partner_name: d.partner_id ? partnerMap.get(d.partner_id) || null : null,
+          product_name: d.product_id ? productMap.get(d.product_id) || null : null,
+          download_url,
+        };
+      })
     );
 
+    setDocuments(enriched);
     setLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -85,7 +113,6 @@ export default function DocumentsPage() {
     setUploading(true);
     setUploadError(null);
 
-    // Upload to Supabase Storage
     const ext = file.name.split(".").pop() || "pdf";
     const path = `documents/${Date.now()}_${title.replace(/\s+/g, "_")}.${ext}`;
 
@@ -99,7 +126,6 @@ export default function DocumentsPage() {
       return;
     }
 
-    // Create document record
     const { error: insertError } = await supabase.from("documents").insert({
       title: title.trim(),
       type: docType,
@@ -107,6 +133,8 @@ export default function DocumentsPage() {
       partner_id: partnerId || null,
       product_id: productId || null,
       is_shared: isShared,
+      audience,
+      is_highlight: isHighlight,
     });
 
     if (insertError) {
@@ -115,20 +143,22 @@ export default function DocumentsPage() {
       return;
     }
 
-    // Reset form
     setTitle("");
-    setDocType("compliance");
+    setDocType("presentation");
+    setAudience("all");
     setPartnerId("");
     setProductId("");
-    setIsShared(false);
+    setIsShared(true);
+    setIsHighlight(false);
     setFile(null);
     setShowUpload(false);
     setUploading(false);
     loadDocuments();
   };
 
-  const handleDelete = async (docId: string) => {
+  const handleDelete = async (docId: string, filePath: string) => {
     if (!confirm("Delete this document?")) return;
+    await supabase.storage.from("documents").remove([filePath]);
     await supabase.from("documents").delete().eq("id", docId);
     loadDocuments();
   };
@@ -141,13 +171,22 @@ export default function DocumentsPage() {
     loadDocuments();
   };
 
+  const toggleHighlight = async (docId: string, currentHighlight: boolean) => {
+    await supabase
+      .from("documents")
+      .update({ is_highlight: !currentHighlight })
+      .eq("id", docId);
+    loadDocuments();
+  };
+
   const filtered = documents.filter((d) => {
     const matchesSearch =
       d.title.toLowerCase().includes(search.toLowerCase()) ||
       (d.partner_name || "").toLowerCase().includes(search.toLowerCase()) ||
       (d.product_name || "").toLowerCase().includes(search.toLowerCase());
     const matchesType = typeFilter === "all" || d.type === typeFilter;
-    return matchesSearch && matchesType;
+    const matchesAudience = audienceFilter === "all" || d.audience === audienceFilter;
+    return matchesSearch && matchesType && matchesAudience;
   });
 
   if (loading) {
@@ -180,7 +219,6 @@ export default function DocumentsPage() {
         }
       />
 
-      {/* Upload form */}
       {showUpload && (
         <div className="mc-card p-5 mb-5 mc-animate-fade">
           <h3
@@ -227,6 +265,20 @@ export default function DocumentsPage() {
               </select>
             </div>
             <div>
+              <label className="mc-label">Audience *</label>
+              <select
+                value={audience}
+                onChange={(e) => setAudience(e.target.value as DocumentAudience)}
+                className="mc-input mc-select"
+              >
+                {DOCUMENT_AUDIENCES.map((a) => (
+                  <option key={a} value={a}>
+                    {DOCUMENT_AUDIENCE_LABELS[a]}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
               <label className="mc-label">File *</label>
               <input
                 type="file"
@@ -264,19 +316,30 @@ export default function DocumentsPage() {
                 ))}
               </select>
             </div>
-            <div className="flex items-end pb-1">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={isShared}
-                  onChange={(e) => setIsShared(e.target.checked)}
-                  className="w-4 h-4"
-                />
-                <span className="text-xs" style={{ color: "var(--mc-text-secondary)" }}>
-                  Shared with partners
-                </span>
-              </label>
-            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-5 mb-4">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isShared}
+                onChange={(e) => setIsShared(e.target.checked)}
+                className="w-4 h-4"
+              />
+              <span className="text-xs" style={{ color: "var(--mc-text-secondary)" }}>
+                Shared with partners
+              </span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isHighlight}
+                onChange={(e) => setIsHighlight(e.target.checked)}
+                className="w-4 h-4"
+              />
+              <span className="text-xs" style={{ color: "var(--mc-text-secondary)" }}>
+                Portfolio highlight (preview for clients)
+              </span>
+            </label>
           </div>
           <div className="flex gap-3">
             <button
@@ -324,6 +387,18 @@ export default function DocumentsPage() {
             </option>
           ))}
         </select>
+        <select
+          value={audienceFilter}
+          onChange={(e) => setAudienceFilter(e.target.value)}
+          className="mc-input mc-select w-auto min-w-[150px]"
+        >
+          <option value="all">All Audiences</option>
+          {DOCUMENT_AUDIENCES.map((a) => (
+            <option key={a} value={a}>
+              {DOCUMENT_AUDIENCE_LABELS[a]}
+            </option>
+          ))}
+        </select>
       </div>
 
       {filtered.length === 0 ? (
@@ -331,7 +406,7 @@ export default function DocumentsPage() {
           icon={FileText}
           title="No documents found"
           description={
-            search || typeFilter !== "all"
+            search || typeFilter !== "all" || audienceFilter !== "all"
               ? "Try adjusting your filters"
               : "Upload your first document"
           }
@@ -343,9 +418,10 @@ export default function DocumentsPage() {
               <tr>
                 <th>Title</th>
                 <th>Type</th>
+                <th>Audience</th>
                 <th>Partner</th>
                 <th>Product</th>
-                <th>Shared</th>
+                <th>Flags</th>
                 <th>Date</th>
                 <th></th>
               </tr>
@@ -371,37 +447,50 @@ export default function DocumentsPage() {
                   </td>
                   <td>
                     <span
-                      className="text-xs"
-                      style={{ color: "var(--mc-text-muted)" }}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium tracking-wide uppercase"
+                      style={{
+                        background: `color-mix(in srgb, ${AUDIENCE_COLORS[doc.audience]} 10%, transparent)`,
+                        border: `1px solid color-mix(in srgb, ${AUDIENCE_COLORS[doc.audience]} 25%, transparent)`,
+                        color: AUDIENCE_COLORS[doc.audience],
+                      }}
                     >
+                      <Shield className="w-2.5 h-2.5" />
+                      {DOCUMENT_AUDIENCE_LABELS[doc.audience]}
+                    </span>
+                  </td>
+                  <td>
+                    <span className="text-xs" style={{ color: "var(--mc-text-muted)" }}>
                       {doc.partner_name || "—"}
                     </span>
                   </td>
                   <td>
-                    <span
-                      className="text-xs"
-                      style={{ color: "var(--mc-text-muted)" }}
-                    >
+                    <span className="text-xs" style={{ color: "var(--mc-text-muted)" }}>
                       {doc.product_name || "—"}
                     </span>
                   </td>
                   <td>
-                    <button
-                      onClick={() => toggleShared(doc.id, doc.is_shared)}
-                      className="inline-flex items-center gap-1 text-[10px] transition-colors"
-                      style={{
-                        color: doc.is_shared
-                          ? "var(--mc-success)"
-                          : "var(--mc-text-muted)",
-                      }}
-                      title={doc.is_shared ? "Visible to partners" : "Admin only"}
-                    >
-                      {doc.is_shared ? (
-                        <Eye className="w-3.5 h-3.5" />
-                      ) : (
-                        <EyeOff className="w-3.5 h-3.5" />
-                      )}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => toggleShared(doc.id, doc.is_shared)}
+                        className="inline-flex items-center gap-1 text-[10px] transition-colors"
+                        style={{
+                          color: doc.is_shared ? "var(--mc-success)" : "var(--mc-text-muted)",
+                        }}
+                        title={doc.is_shared ? "Visible to partners" : "Admin only"}
+                      >
+                        {doc.is_shared ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                      </button>
+                      <button
+                        onClick={() => toggleHighlight(doc.id, doc.is_highlight)}
+                        className="inline-flex items-center gap-1 text-[10px] transition-colors"
+                        style={{
+                          color: doc.is_highlight ? "var(--mc-warning)" : "var(--mc-text-muted)",
+                        }}
+                        title={doc.is_highlight ? "Portfolio highlight" : "Not highlighted"}
+                      >
+                        <Star className="w-3.5 h-3.5" fill={doc.is_highlight ? "currentColor" : "none"} />
+                      </button>
+                    </div>
                   </td>
                   <td>
                     {new Date(doc.created_at).toLocaleDateString("en-GB", {
@@ -411,34 +500,26 @@ export default function DocumentsPage() {
                   </td>
                   <td>
                     <div className="flex items-center gap-2">
-                      <a
-                        href={doc.file_path}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-[11px] transition-colors"
-                        style={{ color: "var(--mc-cream-subtle)" }}
-                        onMouseEnter={(e) =>
-                          (e.currentTarget.style.color = "var(--mc-cream)")
-                        }
-                        onMouseLeave={(e) =>
-                          (e.currentTarget.style.color =
-                            "var(--mc-cream-subtle)")
-                        }
-                        title="Download"
-                      >
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </a>
+                      {doc.download_url && (
+                        <a
+                          href={doc.download_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[11px] transition-colors"
+                          style={{ color: "var(--mc-cream-subtle)" }}
+                          onMouseEnter={(e) => (e.currentTarget.style.color = "var(--mc-cream)")}
+                          onMouseLeave={(e) => (e.currentTarget.style.color = "var(--mc-cream-subtle)")}
+                          title="Download"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                      )}
                       <button
-                        onClick={() => handleDelete(doc.id)}
+                        onClick={() => handleDelete(doc.id, doc.file_path)}
                         className="text-[11px] transition-colors"
                         style={{ color: "var(--mc-text-muted)" }}
-                        onMouseEnter={(e) =>
-                          (e.currentTarget.style.color = "var(--mc-error)")
-                        }
-                        onMouseLeave={(e) =>
-                          (e.currentTarget.style.color =
-                            "var(--mc-text-muted)")
-                        }
+                        onMouseEnter={(e) => (e.currentTarget.style.color = "var(--mc-error)")}
+                        onMouseLeave={(e) => (e.currentTarget.style.color = "var(--mc-text-muted)")}
                         title="Delete"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -454,6 +535,3 @@ export default function DocumentsPage() {
     </div>
   );
 }
-
-
-

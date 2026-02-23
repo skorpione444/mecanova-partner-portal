@@ -9,21 +9,60 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      audit_log: {
+        Row: {
+          action: string
+          created_at: string | null
+          details: Json | null
+          entity_id: string | null
+          entity_type: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string | null
+          details?: Json | null
+          entity_id?: string | null
+          entity_type: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string | null
+          details?: Json | null
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       client_distributors: {
         Row: {
+          assignment_locked: boolean | null
+          assignment_reason: string | null
           client_id: string
+          contract_type: string | null
           created_at: string
           distributor_id: string
           is_default: boolean
         }
         Insert: {
+          assignment_locked?: boolean | null
+          assignment_reason?: string | null
           client_id: string
+          contract_type?: string | null
           created_at?: string
           distributor_id: string
           is_default?: boolean
         }
         Update: {
+          assignment_locked?: boolean | null
+          assignment_reason?: string | null
           client_id?: string
+          contract_type?: string | null
           created_at?: string
           distributor_id?: string
           is_default?: boolean
@@ -47,9 +86,11 @@ export type Database = {
       }
       documents: {
         Row: {
+          audience: Database["public"]["Enums"]["document_audience_enum"]
           created_at: string
           file_path: string
           id: string
+          is_highlight: boolean
           is_shared: boolean
           partner_id: string | null
           product_id: string | null
@@ -58,9 +99,11 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          audience?: Database["public"]["Enums"]["document_audience_enum"]
           created_at?: string
           file_path: string
           id?: string
+          is_highlight?: boolean
           is_shared?: boolean
           partner_id?: string | null
           product_id?: string | null
@@ -69,9 +112,11 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          audience?: Database["public"]["Enums"]["document_audience_enum"]
           created_at?: string
           file_path?: string
           id?: string
+          is_highlight?: boolean
           is_shared?: boolean
           partner_id?: string | null
           product_id?: string | null
@@ -234,34 +279,43 @@ export type Database = {
       partners: {
         Row: {
           billing_address: Json | null
+          capacity_status: string | null
+          client_tier: string | null
           country: string | null
           created_at: string
           id: string
           is_mecanova: boolean
           name: string
           partner_type: Database["public"]["Enums"]["partner_type"]
+          service_countries: string[] | null
           shipping_address: Json | null
           vat_id: string | null
         }
         Insert: {
           billing_address?: Json | null
+          capacity_status?: string | null
+          client_tier?: string | null
           country?: string | null
           created_at?: string
           id?: string
           is_mecanova?: boolean
           name: string
           partner_type?: Database["public"]["Enums"]["partner_type"]
+          service_countries?: string[] | null
           shipping_address?: Json | null
           vat_id?: string | null
         }
         Update: {
           billing_address?: Json | null
+          capacity_status?: string | null
+          client_tier?: string | null
           country?: string | null
           created_at?: string
           id?: string
           is_mecanova?: boolean
           name?: string
           partner_type?: Database["public"]["Enums"]["partner_type"]
+          service_countries?: string[] | null
           shipping_address?: Json | null
           vat_id?: string | null
         }
@@ -390,12 +444,17 @@ export type Database = {
       submit_order: { Args: { p_order_id: string }; Returns: undefined }
     }
     Enums: {
+      document_audience_enum: "all" | "distributor" | "client" | "internal"
       document_type_enum:
         | "invoice"
         | "delivery_note"
         | "compliance"
         | "price_list"
         | "marketing"
+        | "presentation"
+        | "fact_sheet"
+        | "brand_deck"
+        | "spec_sheet"
       inventory_status_enum: "in_stock" | "limited" | "out"
       order_status_enum:
         | "created"
@@ -446,8 +505,6 @@ export type OrderStatus = Enums<"order_status_enum">
 export type PartnerType = Enums<"partner_type">
 export type ProductCategory = Enums<"product_category_enum">
 export type DocumentType = Enums<"document_type_enum">
+export type DocumentAudience = Enums<"document_audience_enum">
 export type InventoryStatusEnum = Enums<"inventory_status_enum">
 export type ProductAssetType = Enums<"product_asset_type_enum">
-
-
-

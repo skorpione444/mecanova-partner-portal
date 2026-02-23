@@ -1,237 +1,185 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { Document as DocRow, UserRole } from "@/lib/supabase/types";
+import PageHeader from "@/components/PageHeader";
+import EmptyState from "@/components/EmptyState";
+import {
+  DOCUMENT_TYPE_LABELS,
+  DOCUMENT_TYPES,
+} from "@mecanova/shared";
+import type { UserRole } from "@mecanova/shared";
 import {
   FileText,
-  ShieldCheck,
-  Receipt,
-  Truck,
-  DollarSign,
-  Megaphone,
-  Globe,
-  Building2,
-  Download,
-  FolderOpen,
+  Search,
+  ExternalLink,
+  Lock,
+  Star,
+  Eye,
 } from "lucide-react";
 
-const TYPE_CONFIG: Record<
-  string,
-  { label: string; icon: React.ElementType; color: string }
-> = {
-  compliance: {
-    label: "Compliance",
-    icon: ShieldCheck,
-    color: "var(--mc-success)",
-  },
-  invoice: {
-    label: "Invoice",
-    icon: Receipt,
-    color: "var(--mc-foreground)",
-  },
-  delivery_note: {
-    label: "Delivery Note",
-    icon: Truck,
-    color: "var(--mc-info)",
-  },
-  price_list: {
-    label: "Price List",
-    icon: DollarSign,
-    color: "var(--mc-foreground)",
-  },
-  marketing: {
-    label: "Marketing",
-    icon: Megaphone,
-    color: "var(--mc-warning)",
-  },
-};
+interface DocVisible {
+  id: string;
+  title: string;
+  type: string;
+  audience: string;
+  is_highlight: boolean;
+  product_id: string | null;
+  product_name: string | null;
+  created_at: string;
+  download_url: string | null;
+  access: "full" | "preview";
+}
 
 export default function DocumentsPage() {
-  const [sharedDocs, setSharedDocs] = useState<DocRow[]>([]);
-  const [partnerDocs, setPartnerDocs] = useState<DocRow[]>([]);
-  const [role, setRole] = useState<UserRole | null>(null);
+  const [documents, setDocuments] = useState<DocVisible[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [accessFilter, setAccessFilter] = useState<string>("all");
+  const [role, setRole] = useState<UserRole | null>(null);
+  const [partnerId, setPartnerId] = useState<string | null>(null);
   const supabase = createClient();
 
-  useEffect(() => {
-    const load = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
+  const loadDocuments = useCallback(async () => {
+    setLoading(true);
 
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role, partner_id")
-        .eq("user_id", user.id)
-        .single();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
 
-      if (profile) {
-        setRole(profile.role);
-      }
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role, partner_id")
+      .eq("user_id", user.id)
+      .single();
 
-      const { data: shared } = await supabase
-        .from("documents")
-        .select("*")
-        .eq("is_shared", true)
-        .order("created_at", { ascending: false });
+    if (!profile) return;
 
-      if (shared) setSharedDocs(shared);
+    const userRole = profile.role as UserRole;
+    const userPartnerId = profile.partner_id;
+    setRole(userRole);
+    setPartnerId(userPartnerId);
 
-      if (profile?.partner_id) {
-        const { data: partner } = await supabase
-          .from("documents")
-          .select("*")
-          .eq("partner_id", profile.partner_id)
-          .eq("is_shared", false)
-          .order("created_at", { ascending: false });
+    const { data: docs } = await supabase
+      .from("documents")
+      .select("*")
+      .order("created_at", { ascending: false });
 
-        if (partner) setPartnerDocs(partner);
-      } else if (profile?.role === "admin") {
-        const { data: allPartner } = await supabase
-          .from("documents")
-          .select("*")
-          .eq("is_shared", false)
-          .order("created_at", { ascending: false });
-
-        if (allPartner) setPartnerDocs(allPartner);
-      }
-
+    if (!docs) {
+      setDocuments([]);
       setLoading(false);
-    };
-
-    load();
-  }, [supabase]);
-
-  const formatDate = (d: string | null) =>
-    d
-      ? new Date(d).toLocaleDateString("de-DE", {
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-        })
-      : "—";
-
-  const renderDocGrid = (docs: DocRow[], emptyMsg: string) => {
-    if (docs.length === 0) {
-      return (
-        <div className="mc-card p-16 text-center">
-          <FolderOpen
-            className="w-10 h-10 mx-auto mb-4"
-            style={{ color: "var(--mc-text-muted)" }}
-            strokeWidth={1}
-          />
-          <p
-            className="text-base font-medium mb-1"
-            style={{
-              color: "var(--mc-text-secondary)",
-              fontFamily: "var(--font-jost), sans-serif",
-            }}
-          >
-            No documents available
-          </p>
-          <p className="text-sm" style={{ color: "var(--mc-text-muted)" }}>
-            {emptyMsg}
-          </p>
-        </div>
-      );
+      return;
     }
 
-    return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mc-stagger">
-        {docs.map((doc) => {
-          const typeConf = TYPE_CONFIG[doc.type] || {
-            label: doc.type,
-            icon: FileText,
-            color: "var(--mc-text-tertiary)",
-          };
-          const TypeIcon = typeConf.icon;
+    const productIds = [...new Set(docs.map((d) => d.product_id).filter(Boolean))] as string[];
+    let productMap = new Map<string, string>();
+    if (productIds.length > 0) {
+      const { data: products } = await supabase
+        .from("products")
+        .select("id, name")
+        .in("id", productIds);
+      productMap = new Map((products || []).map((p) => [p.id, p.name]));
+    }
 
-          return (
-            <div key={doc.id} className="mc-card mc-card-lift p-5 group">
-              <div className="flex items-start gap-3.5">
-                {/* Icon */}
-                <div
-                  className="w-10 h-10 flex items-center justify-center flex-shrink-0 transition-transform duration-200 group-hover:scale-105"
-                  style={{
-                    background: `${typeConf.color}10`,
-                    color: typeConf.color,
-                  }}
-                >
-                  <TypeIcon className="w-5 h-5" strokeWidth={1.5} />
-                </div>
+    let assignedProductIds = new Set<string>();
+    if (userRole === "distributor" && userPartnerId) {
+      const { data: inv } = await supabase
+        .from("inventory_status")
+        .select("product_id")
+        .eq("distributor_id", userPartnerId);
+      assignedProductIds = new Set((inv || []).map((i) => i.product_id));
+    } else if (userRole === "client" && userPartnerId) {
+      const { data: cd } = await supabase
+        .from("client_distributors")
+        .select("distributor_id")
+        .eq("client_id", userPartnerId);
+      const distIds = (cd || []).map((c) => c.distributor_id);
+      if (distIds.length > 0) {
+        const { data: inv } = await supabase
+          .from("inventory_status")
+          .select("product_id")
+          .in("distributor_id", distIds);
+        assignedProductIds = new Set((inv || []).map((i) => i.product_id));
+      }
+    }
 
-                {/* Content */}
-                <div className="flex-1 min-w-0">
-                  <p
-                    className="text-sm font-medium truncate mb-0.5"
-                    style={{ color: "var(--mc-text-primary)" }}
-                  >
-                    {doc.title}
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="text-xs px-2 py-0.5 font-medium"
-                      style={{
-                        background: `${typeConf.color}10`,
-                        color: typeConf.color,
-                      }}
-                    >
-                      {typeConf.label}
-                    </span>
-                    <span
-                      className="text-xs"
-                      style={{
-                        color: "var(--mc-text-muted)",
-                        fontFamily:
-                          "var(--font-jetbrains), monospace",
-                        fontSize: "0.6875rem",
-                      }}
-                    >
-                      {formatDate(doc.updated_at || doc.created_at)}
-                    </span>
-                  </div>
-                </div>
-              </div>
+    const enriched: DocVisible[] = [];
+    for (const doc of docs) {
+      let access: "full" | "preview" = "preview";
 
-              {/* Download action */}
-              <div className="mt-4 pt-3" style={{ borderTop: "1px solid var(--mc-border)" }}>
-                <button
-                  className="mc-btn mc-btn-ghost w-full py-2 text-xs justify-center gap-1.5"
-                  onClick={() => {
-                    // Future: implement download
-                  }}
-                >
-                  <Download className="w-3.5 h-3.5" strokeWidth={1.5} />
-                  Download
-                </button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
+      if (userRole === "distributor") {
+        if (doc.audience === "all" || doc.audience === "distributor") {
+          if (!doc.product_id || assignedProductIds.has(doc.product_id)) {
+            access = "full";
+          } else {
+            access = "preview";
+          }
+        } else if (doc.is_highlight) {
+          access = "preview";
+        } else {
+          continue;
+        }
+      } else if (userRole === "client") {
+        if (doc.audience === "all" || doc.audience === "client") {
+          if (!doc.product_id || assignedProductIds.has(doc.product_id)) {
+            access = "full";
+          } else {
+            access = "preview";
+          }
+        } else if (doc.is_highlight) {
+          access = "preview";
+        } else {
+          continue;
+        }
+      }
+
+      let download_url: string | null = null;
+      if (access === "full" && doc.file_path) {
+        const { data: signedData } = await supabase.storage
+          .from("documents")
+          .createSignedUrl(doc.file_path, 3600);
+        download_url = signedData?.signedUrl || null;
+      }
+
+      enriched.push({
+        id: doc.id,
+        title: doc.title,
+        type: doc.type,
+        audience: doc.audience,
+        is_highlight: doc.is_highlight,
+        product_id: doc.product_id,
+        product_name: doc.product_id ? productMap.get(doc.product_id) || null : null,
+        created_at: doc.created_at,
+        download_url,
+        access,
+      });
+    }
+
+    setDocuments(enriched);
+    setLoading(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    loadDocuments();
+  }, [loadDocuments]);
+
+  const filtered = documents.filter((d) => {
+    const matchesSearch =
+      d.title.toLowerCase().includes(search.toLowerCase()) ||
+      (d.product_name || "").toLowerCase().includes(search.toLowerCase());
+    const matchesType = typeFilter === "all" || d.type === typeFilter;
+    const matchesAccess = accessFilter === "all" || d.access === accessFilter;
+    return matchesSearch && matchesType && matchesAccess;
+  });
 
   if (loading) {
     return (
-      <div className="space-y-8">
-        <div>
-          <div className="mc-skeleton h-8 w-40 mb-3" />
-          <div className="mc-skeleton h-5 w-72" />
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div>
+        <div className="mc-skeleton h-8 w-48 mb-6" />
+        <div className="space-y-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="mc-card p-5">
-              <div className="flex items-start gap-3.5">
-                <div className="mc-skeleton w-10 h-10" />
-                <div className="flex-1">
-                  <div className="mc-skeleton h-4 w-32 mb-2" />
-                  <div className="mc-skeleton h-3 w-20" />
-                </div>
-              </div>
-            </div>
+            <div key={i} className="mc-skeleton h-14" />
           ))}
         </div>
       </div>
@@ -239,105 +187,153 @@ export default function DocumentsPage() {
   }
 
   return (
-    <div className="space-y-10">
-      {/* Header */}
-      <div>
-        <h1
-          className="text-3xl font-semibold tracking-tight"
-          style={{
-            fontFamily: "var(--font-jost), sans-serif",
-            color: "var(--mc-text-primary)",
-          }}
+    <div>
+      <PageHeader
+        title="Documents"
+        description={`${documents.length} documents available${role === "client" ? " · Contact your distributor for additional materials" : ""}`}
+        icon={FileText}
+      />
+
+      <div className="flex flex-col sm:flex-row gap-3 mb-5">
+        <div className="relative flex-1">
+          <Search
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5"
+            style={{ color: "var(--mc-text-muted)" }}
+          />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="mc-input pl-9"
+            placeholder="Search documents..."
+          />
+        </div>
+        <select
+          value={typeFilter}
+          onChange={(e) => setTypeFilter(e.target.value)}
+          className="mc-input mc-select w-auto min-w-[150px]"
         >
-          Documents
-        </h1>
-        <p
-          className="mt-2 text-sm"
-          style={{
-            color: "var(--mc-text-tertiary)",
-            fontFamily: "var(--font-manrope), sans-serif",
-          }}
+          <option value="all">All Types</option>
+          {DOCUMENT_TYPES.map((t) => (
+            <option key={t} value={t}>
+              {DOCUMENT_TYPE_LABELS[t]}
+            </option>
+          ))}
+        </select>
+        <select
+          value={accessFilter}
+          onChange={(e) => setAccessFilter(e.target.value)}
+          className="mc-input mc-select w-auto min-w-[130px]"
         >
-          Compliance, marketing, and partner-specific resources
-        </p>
+          <option value="all">All Access</option>
+          <option value="full">Full Access</option>
+          <option value="preview">Preview Only</option>
+        </select>
       </div>
 
-      {/* Shared Documents */}
-      <section>
-        <div className="flex items-center gap-2.5 mb-5">
-          <div
-            className="w-8 h-8 flex items-center justify-center"
-            style={{
-              background: "rgba(236, 223, 204, 0.08)",
-              color: "var(--mc-foreground)",
-            }}
-          >
-            <Globe className="w-4 h-4" strokeWidth={1.5} />
-          </div>
-          <h2
-            className="text-lg font-semibold"
-            style={{
-              fontFamily: "var(--font-jost), sans-serif",
-              color: "var(--mc-text-primary)",
-            }}
-          >
-            Shared Documents
-          </h2>
-          {sharedDocs.length > 0 && (
-            <span
-              className="text-xs px-2 py-0.5 font-medium"
+      {filtered.length === 0 ? (
+        <EmptyState
+          icon={FileText}
+          title="No documents found"
+          description={
+            search || typeFilter !== "all" || accessFilter !== "all"
+              ? "Try adjusting your filters"
+              : "No documents have been shared with you yet"
+          }
+        />
+      ) : (
+        <div className="grid gap-3 mc-stagger">
+          {filtered.map((doc) => (
+            <div
+              key={doc.id}
+              className="mc-card p-4 flex items-center gap-4"
               style={{
-                background: "var(--mc-secondary)",
-                color: "var(--mc-text-tertiary)",
+                opacity: doc.access === "preview" ? 0.7 : 1,
               }}
             >
-              {sharedDocs.length}
-            </span>
-          )}
-        </div>
-        {renderDocGrid(sharedDocs, "Shared documents will appear here.")}
-      </section>
+              <div
+                className="w-10 h-10 flex items-center justify-center flex-shrink-0"
+                style={{
+                  background: doc.access === "full"
+                    ? "rgba(107, 143, 110, 0.08)"
+                    : "rgba(196, 163, 90, 0.08)",
+                  border: `1px solid ${doc.access === "full" ? "var(--mc-success-light)" : "var(--mc-warning-light)"}`,
+                }}
+              >
+                <FileText
+                  className="w-5 h-5"
+                  style={{
+                    color: doc.access === "full" ? "var(--mc-success)" : "var(--mc-warning)",
+                  }}
+                  strokeWidth={1.5}
+                />
+              </div>
 
-      {/* Partner Documents */}
-      <section>
-        <div className="flex items-center gap-2.5 mb-5">
-          <div
-            className="w-8 h-8 flex items-center justify-center"
-            style={{
-              background: "rgba(236, 223, 204, 0.08)",
-              color: "var(--mc-foreground)",
-            }}
-          >
-            <Building2 className="w-4 h-4" strokeWidth={1.5} />
-          </div>
-          <h2
-            className="text-lg font-semibold"
-            style={{
-              fontFamily: "var(--font-jost), sans-serif",
-              color: "var(--mc-text-primary)",
-            }}
-          >
-            {role === "admin" ? "All Partner Documents" : "Your Documents"}
-          </h2>
-          {partnerDocs.length > 0 && (
-            <span
-              className="text-xs px-2 py-0.5 font-medium"
-              style={{
-                background: "var(--mc-secondary)",
-                color: "var(--mc-text-tertiary)",
-              }}
-            >
-              {partnerDocs.length}
-            </span>
-          )}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span
+                    className="text-sm font-medium truncate"
+                    style={{ color: "var(--mc-text-primary)" }}
+                  >
+                    {doc.title}
+                  </span>
+                  {doc.is_highlight && (
+                    <Star className="w-3 h-3 flex-shrink-0" style={{ color: "var(--mc-warning)" }} fill="currentColor" />
+                  )}
+                </div>
+                <div className="flex items-center gap-3 mt-0.5">
+                  <span
+                    className="text-[10px] font-medium tracking-wide uppercase"
+                    style={{ color: "var(--mc-text-tertiary)" }}
+                  >
+                    {DOCUMENT_TYPE_LABELS[doc.type] || doc.type}
+                  </span>
+                  {doc.product_name && (
+                    <span className="text-[10px]" style={{ color: "var(--mc-text-muted)" }}>
+                      {doc.product_name}
+                    </span>
+                  )}
+                  <span className="text-[10px]" style={{ color: "var(--mc-text-muted)" }}>
+                    {new Date(doc.created_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {doc.access === "full" ? (
+                  doc.download_url ? (
+                    <a
+                      href={doc.download_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mc-btn mc-btn-ghost text-xs py-1.5 px-3"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      Download
+                    </a>
+                  ) : (
+                    <span className="flex items-center gap-1 text-xs" style={{ color: "var(--mc-success)" }}>
+                      <Eye className="w-3.5 h-3.5" /> Available
+                    </span>
+                  )
+                ) : (
+                  <span
+                    className="flex items-center gap-1.5 text-xs px-3 py-1.5"
+                    style={{
+                      color: "var(--mc-warning)",
+                      background: "var(--mc-warning-bg)",
+                      border: "1px solid var(--mc-warning-light)",
+                    }}
+                  >
+                    <Lock className="w-3 h-3" />
+                    Preview
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
-        {renderDocGrid(
-          partnerDocs,
-          role === "admin"
-            ? "No partner documents found."
-            : "Documents for your account will appear here."
-        )}
-      </section>
+      )}
     </div>
   );
 }

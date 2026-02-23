@@ -1,4 +1,4 @@
-import type { OrderStatus, InventoryStatusEnum, PartnerType, UserRole } from "./types";
+import type { OrderStatus, InventoryStatusEnum, PartnerType, UserRole, DocumentAudience } from "./types";
 
 /** The order statuses actively used in the application */
 export const ACTIVE_ORDER_STATUSES = [
@@ -78,6 +78,10 @@ export const DOCUMENT_TYPES = [
   "compliance",
   "price_list",
   "marketing",
+  "presentation",
+  "fact_sheet",
+  "brand_deck",
+  "spec_sheet",
 ] as const;
 
 export const DOCUMENT_TYPE_LABELS: Record<string, string> = {
@@ -86,6 +90,46 @@ export const DOCUMENT_TYPE_LABELS: Record<string, string> = {
   compliance: "Compliance",
   price_list: "Price List",
   marketing: "Marketing",
+  presentation: "Presentation",
+  fact_sheet: "Fact Sheet",
+  brand_deck: "Brand Deck",
+  spec_sheet: "Spec Sheet",
+};
+
+/** Document audience */
+export const DOCUMENT_AUDIENCES = ["all", "distributor", "client", "internal"] as const;
+
+export const DOCUMENT_AUDIENCE_LABELS: Record<DocumentAudience, string> = {
+  all: "Everyone",
+  distributor: "Distributors Only",
+  client: "Clients Only",
+  internal: "Internal (Admin Only)",
+};
+
+// ── Assignment data seeds ─────────────────────────────────────────────
+
+export const CONTRACT_TYPES = ["exclusive", "preferred", "allowed"] as const;
+export type ContractType = (typeof CONTRACT_TYPES)[number];
+export const CONTRACT_TYPE_LABELS: Record<ContractType, string> = {
+  exclusive: "Exclusive",
+  preferred: "Preferred",
+  allowed: "Allowed",
+};
+
+export const CLIENT_TIERS = ["A", "B", "C"] as const;
+export type ClientTier = (typeof CLIENT_TIERS)[number];
+export const CLIENT_TIER_LABELS: Record<ClientTier, string> = {
+  A: "Tier A (Priority)",
+  B: "Tier B (Standard)",
+  C: "Tier C (Basic)",
+};
+
+export const CAPACITY_STATUSES = ["open", "limited", "paused"] as const;
+export type CapacityStatus = (typeof CAPACITY_STATUSES)[number];
+export const CAPACITY_STATUS_LABELS: Record<CapacityStatus, string> = {
+  open: "Open",
+  limited: "Limited",
+  paused: "Paused",
 };
 
 
