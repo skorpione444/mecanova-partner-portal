@@ -8,8 +8,8 @@ import PageHeader from "@/components/PageHeader";
 import Timeline from "@/components/orders/Timeline";
 import StatusBadge from "@/components/orders/StatusBadge";
 import { ORDER_STATUS_LABELS } from "@mecanova/shared";
-import type { ActiveOrderStatus, UserRole } from "@mecanova/shared";
-import { ShoppingCart, ArrowLeft, Check, X } from "lucide-react";
+import type { ActiveOrderStatus } from "@mecanova/shared";
+import { Truck, ArrowLeft } from "lucide-react";
 
 interface OrderDetail {
   id: string;
@@ -21,35 +21,17 @@ interface OrderDetail {
   fulfilled_at: string | null;
   cancelled_at: string | null;
   notes: string | null;
-  client_id: string | null;
-  distributor_id: string | null;
-  client_name: string | null;
-  distributor_name: string | null;
   items: { product_name: string; cases_qty: number }[];
 }
 
-export default function OrderDetailPage() {
+export default function SupplyOrderDetailPage() {
   const params = useParams();
   const id = params.id as string;
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [role, setRole] = useState<UserRole | null>(null);
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
   const supabase = createClient();
 
   const loadOrder = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role, partner_id")
-      .eq("user_id", user.id)
-      .single();
-
-    if (profile) setRole(profile.role as UserRole);
-
     const { data: o } = await supabase
       .from("order_requests")
       .select("*")
@@ -57,18 +39,6 @@ export default function OrderDetailPage() {
       .single();
 
     if (!o) { setLoading(false); return; }
-
-    let client_name: string | null = null;
-    let distributor_name: string | null = null;
-
-    if (o.client_id) {
-      const { data: c } = await supabase.from("partners").select("name").eq("id", o.client_id).single();
-      client_name = c?.name || null;
-    }
-    if (o.distributor_id) {
-      const { data: d } = await supabase.from("partners").select("name").eq("id", o.distributor_id).single();
-      distributor_name = d?.name || null;
-    }
 
     const { data: items } = await supabase
       .from("order_request_items")
@@ -92,10 +62,6 @@ export default function OrderDetailPage() {
       fulfilled_at: o.fulfilled_at,
       cancelled_at: o.cancelled_at,
       notes: o.notes,
-      client_id: o.client_id,
-      distributor_id: o.distributor_id,
-      client_name,
-      distributor_name,
       items: (items || []).map((i) => ({
         product_name: productMap.get(i.product_id) || "Unknown",
         cases_qty: i.cases_qty,
@@ -109,32 +75,6 @@ export default function OrderDetailPage() {
     loadOrder();
   }, [loadOrder]);
 
-  const handleAccept = async () => {
-    setActionLoading("accept");
-    setActionError(null);
-    const { error } = await supabase.rpc("accept_order", { p_order_id: id });
-    if (error) {
-      setActionError(error.message);
-      setActionLoading(null);
-      return;
-    }
-    await loadOrder();
-    setActionLoading(null);
-  };
-
-  const handleReject = async () => {
-    setActionLoading("reject");
-    setActionError(null);
-    const { error } = await supabase.rpc("reject_order", { p_order_id: id });
-    if (error) {
-      setActionError(error.message);
-      setActionLoading(null);
-      return;
-    }
-    await loadOrder();
-    setActionLoading(null);
-  };
-
   if (loading) {
     return (
       <div>
@@ -147,20 +87,13 @@ export default function OrderDetailPage() {
   if (!order) {
     return (
       <div>
-        <Link href="/orders" className="inline-flex items-center gap-1.5 text-[11px] tracking-wide mb-4" style={{ color: "var(--mc-text-muted)" }}>
-          <ArrowLeft className="w-3 h-3" /> Back to Orders
+        <Link href="/supply-orders" className="inline-flex items-center gap-1.5 text-[11px] tracking-wide mb-4" style={{ color: "var(--mc-text-muted)" }}>
+          <ArrowLeft className="w-3 h-3" /> Back to Supply Orders
         </Link>
         <p className="text-sm" style={{ color: "var(--mc-text-muted)" }}>Order not found.</p>
       </div>
     );
   }
-
-  const isDistributor = role === "distributor";
-  const isClient = role === "client";
-  const canManageOrder = isDistributor && order.status === "submitted";
-
-  const counterpartLabel = isDistributor ? "Client" : "Distributor";
-  const counterpartName = isDistributor ? order.client_name : order.distributor_name;
 
   const timelineEvents = [
     { label: "Created", date: order.created_at },
@@ -174,72 +107,24 @@ export default function OrderDetailPage() {
   return (
     <div>
       <Link
-        href="/orders"
+        href="/supply-orders"
         className="inline-flex items-center gap-1.5 text-[11px] tracking-wide mb-4 transition-colors"
         style={{ color: "var(--mc-text-muted)" }}
         onMouseEnter={(e) => (e.currentTarget.style.color = "var(--mc-cream)")}
         onMouseLeave={(e) => (e.currentTarget.style.color = "var(--mc-text-muted)")}
       >
         <ArrowLeft className="w-3 h-3" />
-        Back to Orders
+        Back to Supply Orders
       </Link>
 
       <PageHeader
-        title={`Order ${order.id.slice(0, 8)}...`}
-        description={counterpartName ? `${counterpartLabel}: ${counterpartName}` : undefined}
-        icon={ShoppingCart}
+        title={`Supply Order ${order.id.slice(0, 8)}...`}
+        description="Supplier: Mecanova"
+        icon={Truck}
         actions={<StatusBadge status={order.status} />}
       />
 
-      {actionError && (
-        <div
-          className="mb-5 px-4 py-3 text-xs"
-          style={{
-            background: "var(--mc-error-bg)",
-            border: "1px solid var(--mc-error-light)",
-            color: "var(--mc-error)",
-          }}
-        >
-          {actionError}
-        </div>
-      )}
-
       <div className="max-w-2xl space-y-5">
-        {/* Distributor actions: Accept / Reject */}
-        {canManageOrder && (
-          <div className="mc-card p-5">
-            <h3 className="text-xs font-semibold tracking-[0.08em] uppercase mb-3" style={{ color: "var(--mc-text-muted)" }}>
-              Actions
-            </h3>
-            <p className="text-xs mb-4" style={{ color: "var(--mc-text-secondary)" }}>
-              This order is awaiting your review. Accept to confirm and reserve inventory, or reject to decline.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={handleAccept}
-                disabled={actionLoading !== null}
-                className="mc-btn mc-btn-primary inline-flex items-center gap-1.5"
-              >
-                <Check className="w-3.5 h-3.5" />
-                {actionLoading === "accept" ? "Accepting..." : "Accept Order"}
-              </button>
-              <button
-                onClick={handleReject}
-                disabled={actionLoading !== null}
-                className="mc-btn inline-flex items-center gap-1.5"
-                style={{
-                  background: "transparent",
-                  border: "1px solid var(--mc-error-light)",
-                  color: "var(--mc-error)",
-                }}
-              >
-                <X className="w-3.5 h-3.5" />
-                {actionLoading === "reject" ? "Rejecting..." : "Reject Order"}
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* Timeline */}
         <div className="mc-card p-5">
           <h3 className="text-xs font-semibold tracking-[0.08em] uppercase mb-3" style={{ color: "var(--mc-text-muted)" }}>
@@ -248,7 +133,7 @@ export default function OrderDetailPage() {
           <Timeline events={timelineEvents} />
         </div>
 
-        {/* Order info */}
+        {/* Details */}
         <div className="mc-card p-5">
           <h3 className="text-xs font-semibold tracking-[0.08em] uppercase mb-3" style={{ color: "var(--mc-text-muted)" }}>
             Details
@@ -261,10 +146,8 @@ export default function OrderDetailPage() {
               </p>
             </div>
             <div>
-              <span style={{ color: "var(--mc-text-muted)" }}>{counterpartLabel}</span>
-              <p className="mt-0.5" style={{ color: "var(--mc-text-primary)" }}>
-                {counterpartName || "—"}
-              </p>
+              <span style={{ color: "var(--mc-text-muted)" }}>Supplier</span>
+              <p className="mt-0.5" style={{ color: "var(--mc-text-primary)" }}>Mecanova</p>
             </div>
           </div>
         </div>

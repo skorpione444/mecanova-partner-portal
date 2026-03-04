@@ -10,6 +10,7 @@ import {
   Package,
   FileText,
   ShoppingCart,
+  Truck,
   LogOut,
   Menu,
   X,
@@ -20,11 +21,19 @@ interface PortalShellProps {
   children: React.ReactNode;
 }
 
-const NAV_ITEMS = [
+interface NavItem {
+  href: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  roles?: UserRole[];
+}
+
+const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/products", label: "Products", icon: Package },
   { href: "/documents", label: "Documents", icon: FileText },
   { href: "/orders", label: "Orders", icon: ShoppingCart },
+  { href: "/supply-orders", label: "Supply Orders", icon: Truck, roles: ["distributor"] },
 ];
 
 export default function PortalShell({ children }: PortalShellProps) {
@@ -188,7 +197,7 @@ export default function PortalShell({ children }: PortalShellProps) {
               <p className="px-5 py-1.5 text-[9px] font-semibold tracking-[0.1em] uppercase" style={{ color: "var(--mc-cream-faint)" }}>
                 Navigation
               </p>
-              {NAV_ITEMS.map((item) => {
+              {NAV_ITEMS.filter((item) => !item.roles || (role && item.roles.includes(role))).map((item) => {
                 const Icon = item.icon;
                 const active = isActive(item.href);
                 return (

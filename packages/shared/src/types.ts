@@ -433,6 +433,7 @@ export type Database = {
       accept_order: { Args: { p_order_id: string }; Returns: undefined }
       cancel_order: { Args: { p_order_id: string }; Returns: undefined }
       create_order: { Args: { p_distributor_id: string }; Returns: string }
+      create_supply_order: { Args: Record<string, never>; Returns: string }
       current_partner_id: { Args: Record<string, never>; Returns: string }
       current_role: { Args: Record<string, never>; Returns: string }
       fulfill_order: { Args: { p_order_id: string }; Returns: undefined }
