@@ -14,6 +14,7 @@ export type {
   InventoryMovement,
   Document,
   ClientDistributor,
+  Invoice,
   UserRole,
   OrderStatus,
   PartnerType,
@@ -22,6 +23,7 @@ export type {
   DocumentAudience,
   InventoryStatusEnum,
   ProductAssetType,
+  InvoiceStatus,
 } from "./types";
 
 // ── Constants ────────────────────────────────────────────────────────
@@ -43,6 +45,11 @@ export {
   CLIENT_TIER_LABELS,
   CAPACITY_STATUSES,
   CAPACITY_STATUS_LABELS,
+  INVOICE_STATUSES,
+  INVOICE_STATUS_LABELS,
+  INVOICE_STATUS_COLORS,
+  INVENTORY_ADJUSTMENT_TYPES,
+  INVENTORY_ADJUSTMENT_LABELS,
 } from "./constants";
 
 export type {
@@ -50,6 +57,7 @@ export type {
   ContractType,
   ClientTier,
   CapacityStatus,
+  InventoryAdjustmentType,
 } from "./constants";
 
 

@@ -492,6 +492,107 @@ View Order: ${orderUrl}
 This is an automated notification from Mecanova Partner Portal`;
       break;
 
+    case "order_delivered_to_client":
+      html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background-color: #d4edda; border-radius: 8px; padding: 30px; margin-bottom: 20px;">
+    <h1 style="color: #155724; margin-top: 0;">Order Delivered</h1>
+    <p style="font-size: 16px; color: #155724;">Your order has been delivered successfully.</p>
+  </div>
+  
+  <div style="background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+    <h2 style="color: #2c3e50; margin-top: 0; font-size: 18px;">Order Details</h2>
+    <p style="margin: 10px 0;"><strong>Order ID:</strong> <code style="background-color: #f4f4f4; padding: 2px 6px; border-radius: 3px;">${orderId}</code></p>
+    <p style="margin: 10px 0;"><strong>Status:</strong> <span style="color: #28a745; font-weight: 500;">Delivered</span></p>
+  </div>
+  
+  <div style="text-align: center; margin-top: 30px;">
+    <a href="${orderUrl}" style="display: inline-block; background-color: #28a745; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 5px; font-weight: 500;">View Order in Portal</a>
+  </div>
+  
+  <p style="color: #666; font-size: 14px; margin-top: 30px; text-align: center;">This is an automated notification from Mecanova Partner Portal</p>
+</body>
+</html>`;
+      text = `Order Delivered
+
+Your order has been delivered successfully.
+
+Order Details:
+Order ID: ${orderId}
+Status: Delivered
+
+View Order: ${orderUrl}
+
+---
+This is an automated notification from Mecanova Partner Portal`;
+      break;
+
+    case "invoice_reminder": {
+      const invoiceId = payload.invoice_id;
+      const invoiceNumber = payload.invoice_number || "N/A";
+      const amount = payload.amount || "0.00";
+      const currency = payload.currency || "EUR";
+      const dueDate = payload.due_date || "N/A";
+      const distributorName = payload.distributor_name || "Your distributor";
+      const invoiceUrl = portalBaseUrl
+        ? `${portalBaseUrl}/invoices/${invoiceId}`
+        : `#${invoiceId}`;
+
+      html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <div style="background-color: #fff3cd; border-radius: 8px; padding: 30px; margin-bottom: 20px;">
+    <h1 style="color: #856404; margin-top: 0;">Payment Reminder</h1>
+    <p style="font-size: 16px; color: #856404;">You have an outstanding invoice that requires your attention.</p>
+  </div>
+  
+  <div style="background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+    <h2 style="color: #2c3e50; margin-top: 0; font-size: 18px;">Invoice Details</h2>
+    <p style="margin: 10px 0;"><strong>Invoice Number:</strong> ${invoiceNumber}</p>
+    <p style="margin: 10px 0;"><strong>Amount:</strong> ${currency} ${amount}</p>
+    <p style="margin: 10px 0;"><strong>Due Date:</strong> ${dueDate}</p>
+    <p style="margin: 10px 0;"><strong>From:</strong> ${distributorName}</p>
+  </div>
+
+  <p style="font-size: 14px; color: #555;">Please settle this invoice at your earliest convenience. If you have already made the payment, please disregard this reminder.</p>
+  
+  <div style="text-align: center; margin-top: 30px;">
+    <a href="${invoiceUrl}" style="display: inline-block; background-color: #007bff; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 5px; font-weight: 500;">View Invoice in Portal</a>
+  </div>
+  
+  <p style="color: #666; font-size: 14px; margin-top: 30px; text-align: center;">This email was sent from partners@mecanova.de on behalf of ${distributorName}</p>
+</body>
+</html>`;
+      text = `Payment Reminder
+
+You have an outstanding invoice that requires your attention.
+
+Invoice Details:
+Invoice Number: ${invoiceNumber}
+Amount: ${currency} ${amount}
+Due Date: ${dueDate}
+From: ${distributorName}
+
+Please settle this invoice at your earliest convenience. If you have already made the payment, please disregard this reminder.
+
+View Invoice: ${invoiceUrl}
+
+---
+This email was sent from partners@mecanova.de on behalf of ${distributorName}`;
+      break;
+    }
+
     default:
       html = `
 <!DOCTYPE html>

@@ -39,6 +39,75 @@ export type Database = {
         }
         Relationships: []
       }
+      invoices: {
+        Row: {
+          id: string
+          invoice_number: string
+          distributor_id: string
+          client_id: string
+          amount: number
+          currency: string
+          due_date: string
+          status: Database["public"]["Enums"]["invoice_status_enum"]
+          file_path: string
+          notes: string | null
+          created_at: string
+          updated_at: string
+          paid_at: string | null
+          last_reminder_at: string | null
+          created_by_user: string
+        }
+        Insert: {
+          id?: string
+          invoice_number: string
+          distributor_id: string
+          client_id: string
+          amount: number
+          currency?: string
+          due_date: string
+          status?: Database["public"]["Enums"]["invoice_status_enum"]
+          file_path: string
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+          paid_at?: string | null
+          last_reminder_at?: string | null
+          created_by_user: string
+        }
+        Update: {
+          id?: string
+          invoice_number?: string
+          distributor_id?: string
+          client_id?: string
+          amount?: number
+          currency?: string
+          due_date?: string
+          status?: Database["public"]["Enums"]["invoice_status_enum"]
+          file_path?: string
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+          paid_at?: string | null
+          last_reminder_at?: string | null
+          created_by_user?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_distributor_id_fkey"
+            columns: ["distributor_id"]
+            isOneToOne: false
+            referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_distributors: {
         Row: {
           assignment_locked: boolean | null
@@ -147,6 +216,7 @@ export type Database = {
           distributor_id: string
           id: string
           movement_type: string
+          note: string | null
           order_request_id: string | null
           product_id: string
           qty_delta: number
@@ -156,6 +226,7 @@ export type Database = {
           distributor_id: string
           id?: string
           movement_type: string
+          note?: string | null
           order_request_id?: string | null
           product_id: string
           qty_delta: number
@@ -165,6 +236,7 @@ export type Database = {
           distributor_id?: string
           id?: string
           movement_type?: string
+          note?: string | null
           order_request_id?: string | null
           product_id?: string
           qty_delta?: number
@@ -229,8 +301,11 @@ export type Database = {
           client_id: string | null
           created_at: string
           created_by_user: string
+          delivered_at: string | null
           delivery_location: Json | null
           distributor_id: string | null
+          estimated_delivery_date: string | null
+          estimated_delivery_note: string | null
           fulfilled_at: string | null
           id: string
           notes: string | null
@@ -246,8 +321,11 @@ export type Database = {
           client_id?: string | null
           created_at?: string
           created_by_user: string
+          delivered_at?: string | null
           delivery_location?: Json | null
           distributor_id?: string | null
+          estimated_delivery_date?: string | null
+          estimated_delivery_note?: string | null
           fulfilled_at?: string | null
           id?: string
           notes?: string | null
@@ -263,8 +341,11 @@ export type Database = {
           client_id?: string | null
           created_at?: string
           created_by_user?: string
+          delivered_at?: string | null
           delivery_location?: Json | null
           distributor_id?: string | null
+          estimated_delivery_date?: string | null
+          estimated_delivery_note?: string | null
           fulfilled_at?: string | null
           id?: string
           notes?: string | null
@@ -281,6 +362,9 @@ export type Database = {
           billing_address: Json | null
           capacity_status: string | null
           client_tier: string | null
+          contact_email: string | null
+          contact_person: string | null
+          contact_phone: string | null
           country: string | null
           created_at: string
           id: string
@@ -295,6 +379,9 @@ export type Database = {
           billing_address?: Json | null
           capacity_status?: string | null
           client_tier?: string | null
+          contact_email?: string | null
+          contact_person?: string | null
+          contact_phone?: string | null
           country?: string | null
           created_at?: string
           id?: string
@@ -309,6 +396,9 @@ export type Database = {
           billing_address?: Json | null
           capacity_status?: string | null
           client_tier?: string | null
+          contact_email?: string | null
+          contact_person?: string | null
+          contact_phone?: string | null
           country?: string | null
           created_at?: string
           id?: string
@@ -406,6 +496,7 @@ export type Database = {
           created_at: string
           full_name: string | null
           partner_id: string | null
+          phone: string | null
           role: Database["public"]["Enums"]["user_role"]
           user_id: string
         }
@@ -413,6 +504,7 @@ export type Database = {
           created_at?: string
           full_name?: string | null
           partner_id?: string | null
+          phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           user_id: string
         }
@@ -420,6 +512,7 @@ export type Database = {
           created_at?: string
           full_name?: string | null
           partner_id?: string | null
+          phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           user_id?: string
         }
@@ -431,20 +524,25 @@ export type Database = {
     }
     Functions: {
       accept_order: { Args: { p_order_id: string }; Returns: undefined }
+      adjust_inventory: { Args: { p_product_id: string; p_qty_delta: number; p_movement_type: string; p_note: string | null }; Returns: undefined }
       cancel_order: { Args: { p_order_id: string }; Returns: undefined }
       create_order: { Args: { p_distributor_id: string }; Returns: string }
       create_supply_order: { Args: Record<string, never>; Returns: string }
       current_partner_id: { Args: Record<string, never>; Returns: string }
       current_role: { Args: Record<string, never>; Returns: string }
+      deliver_order: { Args: { p_order_id: string }; Returns: undefined }
       fulfill_order: { Args: { p_order_id: string }; Returns: undefined }
+      get_order_client_info: { Args: { p_order_id: string }; Returns: Json }
       is_admin: { Args: Record<string, never>; Returns: boolean }
       mecanova_current_partner_id: { Args: Record<string, never>; Returns: string }
       mecanova_current_role: { Args: Record<string, never>; Returns: string }
       mecanova_is_admin: { Args: Record<string, never>; Returns: boolean }
       reject_order: { Args: { p_order_id: string }; Returns: undefined }
+      send_invoice_reminder: { Args: { p_invoice_id: string }; Returns: undefined }
       submit_order: { Args: { p_order_id: string }; Returns: undefined }
     }
     Enums: {
+      invoice_status_enum: "sent" | "paid" | "overdue"
       document_audience_enum: "all" | "distributor" | "client" | "internal"
       document_type_enum:
         | "invoice"
@@ -463,6 +561,7 @@ export type Database = {
         | "accepted"
         | "rejected"
         | "fulfilled"
+        | "delivered"
         | "cancelled"
         // Legacy (unused in app):
         | "confirmed"
@@ -509,3 +608,5 @@ export type DocumentType = Enums<"document_type_enum">
 export type DocumentAudience = Enums<"document_audience_enum">
 export type InventoryStatusEnum = Enums<"inventory_status_enum">
 export type ProductAssetType = Enums<"product_asset_type_enum">
+export type InvoiceStatus = Enums<"invoice_status_enum">
+export type Invoice = Tables<"invoices">

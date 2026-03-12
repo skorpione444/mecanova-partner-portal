@@ -6,6 +6,7 @@ const COLOR_MAP: Record<string, { bg: string; border: string; text: string }> = 
   warning: { bg: "var(--mc-warning-bg)", border: "var(--mc-warning-light)", text: "var(--mc-warning)" },
   success: { bg: "var(--mc-success-bg)", border: "var(--mc-success-light)", text: "var(--mc-success)" },
   error: { bg: "var(--mc-error-bg)", border: "var(--mc-error-light)", text: "var(--mc-error)" },
+  delivered: { bg: "#0a2e1a", border: "#16613a", text: "#2ecc71" },
 };
 
 export default function StatusBadge({ status }: { status: string }) {

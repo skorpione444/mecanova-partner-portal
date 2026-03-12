@@ -1,4 +1,4 @@
-import type { OrderStatus, InventoryStatusEnum, PartnerType, UserRole, DocumentAudience } from "./types";
+import type { OrderStatus, InventoryStatusEnum, PartnerType, UserRole, DocumentAudience, InvoiceStatus } from "./types";
 
 /** The order statuses actively used in the application */
 export const ACTIVE_ORDER_STATUSES = [
@@ -7,6 +7,7 @@ export const ACTIVE_ORDER_STATUSES = [
   "accepted",
   "rejected",
   "fulfilled",
+  "delivered",
   "cancelled",
 ] as const satisfies readonly OrderStatus[];
 
@@ -19,16 +20,18 @@ export const ORDER_STATUS_LABELS: Record<ActiveOrderStatus, string> = {
   accepted: "Accepted",
   rejected: "Rejected",
   fulfilled: "Fulfilled",
+  delivered: "Delivered",
   cancelled: "Cancelled",
 };
 
 /** Color keys for order status badges */
-export const ORDER_STATUS_COLORS: Record<ActiveOrderStatus, "info" | "warning" | "success" | "error"> = {
+export const ORDER_STATUS_COLORS: Record<ActiveOrderStatus, string> = {
   created: "info",
   submitted: "warning",
   accepted: "success",
   rejected: "error",
   fulfilled: "success",
+  delivered: "delivered",
   cancelled: "error",
 };
 
@@ -132,5 +135,43 @@ export const CAPACITY_STATUS_LABELS: Record<CapacityStatus, string> = {
   paused: "Paused",
 };
 
+// ── Invoice constants ────────────────────────────────────────────────
 
+export const INVOICE_STATUSES = ["sent", "paid", "overdue"] as const;
+
+export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
+  sent: "Sent",
+  paid: "Paid",
+  overdue: "Overdue",
+};
+
+export const INVOICE_STATUS_COLORS: Record<InvoiceStatus, "info" | "warning" | "success" | "error"> = {
+  sent: "warning",
+  paid: "success",
+  overdue: "error",
+};
+
+// ── Inventory adjustment types ───────────────────────────────────────
+
+export const INVENTORY_ADJUSTMENT_TYPES = [
+  "stock_in",
+  "broken",
+  "gifted",
+  "sample",
+  "damaged",
+  "lost",
+  "other",
+] as const;
+
+export type InventoryAdjustmentType = (typeof INVENTORY_ADJUSTMENT_TYPES)[number];
+
+export const INVENTORY_ADJUSTMENT_LABELS: Record<InventoryAdjustmentType, string> = {
+  stock_in: "Stock In (from Mecanova)",
+  broken: "Broken",
+  gifted: "Gifted",
+  sample: "Sample",
+  damaged: "Damaged",
+  lost: "Lost",
+  other: "Other",
+};
 

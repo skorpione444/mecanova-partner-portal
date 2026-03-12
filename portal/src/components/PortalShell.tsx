@@ -15,6 +15,8 @@ import {
   Menu,
   X,
   ChevronRight,
+  Receipt,
+  Warehouse,
 } from "lucide-react";
 
 interface PortalShellProps {
@@ -33,6 +35,8 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/products", label: "Products", icon: Package },
   { href: "/documents", label: "Documents", icon: FileText },
   { href: "/orders", label: "Orders", icon: ShoppingCart },
+  { href: "/invoices", label: "Invoices", icon: Receipt },
+  { href: "/inventory", label: "Inventory", icon: Warehouse, roles: ["distributor"] },
   { href: "/supply-orders", label: "Supply Orders", icon: Truck, roles: ["distributor"] },
 ];
 
