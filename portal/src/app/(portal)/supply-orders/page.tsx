@@ -9,7 +9,7 @@ import { useRouter } from "next/navigation";
 import { ORDER_STATUS_LABELS, ORDER_STATUS_COLORS } from "@mecanova/shared";
 import type { ActiveOrderStatus } from "@mecanova/shared";
 import {
-  Truck,
+  ShoppingCart,
   Plus,
   ArrowRight,
 } from "lucide-react";
@@ -128,26 +128,26 @@ export default function SupplyOrdersPage() {
   return (
     <div>
       <PageHeader
-        title="Supply Orders"
-        description={`${orders.length} orders to Mecanova`}
-        icon={Truck}
+        title="Buy Products"
+        description={`${orders.length} orders from Mecanova`}
+        icon={ShoppingCart}
         actions={
           <Link href="/supply-orders/new" className="mc-btn mc-btn-primary">
             <Plus className="w-3.5 h-3.5" />
-            New Supply Order
+            New Order
           </Link>
         }
       />
 
       {orders.length === 0 ? (
         <EmptyState
-          icon={Truck}
-          title="No supply orders yet"
+          icon={ShoppingCart}
+          title="No orders yet"
           description="Order products directly from Mecanova to restock your inventory"
           action={
             <Link href="/supply-orders/new" className="mc-btn mc-btn-primary">
               <Plus className="w-3.5 h-3.5" />
-              Create Supply Order
+              Create Order
             </Link>
           }
         />

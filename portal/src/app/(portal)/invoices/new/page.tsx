@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { Suspense, useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import PageHeader from "@/components/PageHeader";
 import Link from "next/link";
 import { Receipt, ArrowLeft, Upload, Loader2 } from "lucide-react";
@@ -12,7 +12,7 @@ interface ClientOption {
   name: string;
 }
 
-export default function NewInvoicePage() {
+function NewInvoiceForm() {
   const [clients, setClients] = useState<ClientOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -29,6 +29,7 @@ export default function NewInvoicePage() {
 
   const supabase = createClient();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const loadClients = useCallback(async () => {
     const {
@@ -62,6 +63,10 @@ export default function NewInvoicePage() {
         .in("id", clientIds)
         .order("name");
       setClients(partners || []);
+      const prefilledClient = searchParams.get("client");
+      if (prefilledClient && partners?.find((p) => p.id === prefilledClient)) {
+        setClientId(prefilledClient);
+      }
     }
 
     setLoading(false);
@@ -322,5 +327,18 @@ export default function NewInvoicePage() {
         </button>
       </form>
     </div>
+  );
+}
+
+export default function NewInvoicePage() {
+  return (
+    <Suspense fallback={
+      <div>
+        <div className="mc-skeleton h-6 w-48 mb-6" />
+        <div className="mc-skeleton h-96 max-w-lg" />
+      </div>
+    }>
+      <NewInvoiceForm />
+    </Suspense>
   );
 }

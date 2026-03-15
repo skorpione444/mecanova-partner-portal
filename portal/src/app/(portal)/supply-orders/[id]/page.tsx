@@ -88,7 +88,7 @@ export default function SupplyOrderDetailPage() {
     return (
       <div>
         <Link href="/supply-orders" className="inline-flex items-center gap-1.5 text-[11px] tracking-wide mb-4" style={{ color: "var(--mc-text-muted)" }}>
-          <ArrowLeft className="w-3 h-3" /> Back to Supply Orders
+          <ArrowLeft className="w-3 h-3" /> Back to Buy Products
         </Link>
         <p className="text-sm" style={{ color: "var(--mc-text-muted)" }}>Order not found.</p>
       </div>
@@ -114,11 +114,11 @@ export default function SupplyOrderDetailPage() {
         onMouseLeave={(e) => (e.currentTarget.style.color = "var(--mc-text-muted)")}
       >
         <ArrowLeft className="w-3 h-3" />
-        Back to Supply Orders
+        Back to Buy Products
       </Link>
 
       <PageHeader
-        title={`Supply Order ${order.id.slice(0, 8)}...`}
+        title={`Order ${order.id.slice(0, 8)}...`}
         description="Supplier: Mecanova"
         icon={Truck}
         actions={<StatusBadge status={order.status} />}

@@ -11,6 +11,9 @@ import {
   ShoppingCart,
   Receipt,
   AlertCircle,
+  Warehouse,
+  AlertTriangle,
+  Truck,
 } from "lucide-react";
 
 export default function DashboardPage() {
@@ -22,6 +25,14 @@ export default function DashboardPage() {
   const [partnerName, setPartnerName] = useState<string | null>(null);
   const [distributorName, setDistributorName] = useState<string | null>(null);
   const [openInvoiceCount, setOpenInvoiceCount] = useState<number>(0);
+  const [inventoryStats, setInventoryStats] = useState<{
+    productsTracked: number;
+    totalBottles: number;
+    totalCases: number;
+    lowStockCount: number;
+    availableCount: number;
+    outOfStockCount: number;
+  } | null>(null);
   const supabase = createClient();
 
   useEffect(() => {
@@ -61,6 +72,55 @@ export default function DashboardPage() {
                 .eq("id", cd.distributor_id)
                 .single();
               if (dist) setDistributorName(dist.name);
+
+              // Load client inventory stats from their distributor
+              const { data: invRows } = await supabase
+                .from("inventory_status")
+                .select("product_id, on_hand_qty, status")
+                .eq("distributor_id", cd.distributor_id);
+
+              if (invRows) {
+                const availableCount = invRows.filter(r => r.status === "in_stock" || r.status === "limited").length;
+                const outOfStockCount = invRows.filter(r => r.status === "out").length;
+
+                setInventoryStats({
+                  productsTracked: invRows.length,
+                  totalBottles: 0,
+                  totalCases: 0,
+                  lowStockCount: 0,
+                  availableCount,
+                  outOfStockCount,
+                });
+              }
+            }
+          }
+
+          // Load distributor inventory stats
+          if (prof.role === "distributor") {
+            const { data: invRows } = await supabase
+              .from("inventory_status")
+              .select("product_id, on_hand_qty, status")
+              .eq("distributor_id", prof.partner_id);
+
+            if (invRows) {
+              const { data: prods } = await supabase
+                .from("products")
+                .select("id, case_size")
+                .eq("active", true);
+              const prodMap = new Map((prods || []).map(p => [p.id, p.case_size || 6]));
+
+              const totalCases = invRows.reduce((sum, r) => sum + r.on_hand_qty, 0);
+              const totalBottles = invRows.reduce((sum, r) => sum + r.on_hand_qty * (prodMap.get(r.product_id) || 6), 0);
+              const lowStockCount = invRows.filter(r => r.status === "limited" || r.status === "out").length;
+
+              setInventoryStats({
+                productsTracked: invRows.length,
+                totalBottles,
+                totalCases,
+                lowStockCount,
+                availableCount: 0,
+                outOfStockCount: 0,
+              });
             }
           }
 
@@ -161,29 +221,6 @@ export default function DashboardPage() {
         </Link>
 
         <Link
-          href="/documents"
-          className="mc-card p-5 group transition-all hover:translate-y-[-1px]"
-          style={{ cursor: "pointer" }}
-        >
-          <div className="flex items-center gap-3 mb-2">
-            <FileText
-              className="w-5 h-5"
-              style={{ color: "var(--mc-cream-subtle)" }}
-              strokeWidth={1.5}
-            />
-            <span
-              className="text-sm font-medium"
-              style={{ color: "var(--mc-text-primary)" }}
-            >
-              Documents
-            </span>
-          </div>
-          <p className="text-xs" style={{ color: "var(--mc-text-muted)" }}>
-            Access presentations, fact sheets, and compliance documents
-          </p>
-        </Link>
-
-        <Link
           href="/orders"
           className="mc-card p-5 group transition-all hover:translate-y-[-1px]"
           style={{ cursor: "pointer" }}
@@ -205,7 +242,136 @@ export default function DashboardPage() {
             Create and track your orders
           </p>
         </Link>
+
+        {/* 4th card: Buy Products for distributors, Documents for clients */}
+        {profile?.role === "distributor" ? (
+          <Link
+            href="/supply-orders/new"
+            className="mc-card p-5 group transition-all hover:translate-y-[-1px]"
+            style={{ cursor: "pointer" }}
+          >
+            <div className="flex items-center gap-3 mb-2">
+              <Truck
+                className="w-5 h-5"
+                style={{ color: "var(--mc-cream-subtle)" }}
+                strokeWidth={1.5}
+              />
+              <span
+                className="text-sm font-medium"
+                style={{ color: "var(--mc-text-primary)" }}
+              >
+                Buy Products
+              </span>
+            </div>
+            <p className="text-xs" style={{ color: "var(--mc-text-muted)" }}>
+              Order products from Mecanova
+            </p>
+          </Link>
+        ) : (
+          <Link
+            href="/products"
+            className="mc-card p-5 group transition-all hover:translate-y-[-1px]"
+            style={{ cursor: "pointer" }}
+          >
+            <div className="flex items-center gap-3 mb-2">
+              <FileText
+                className="w-5 h-5"
+                style={{ color: "var(--mc-cream-subtle)" }}
+                strokeWidth={1.5}
+              />
+              <span
+                className="text-sm font-medium"
+                style={{ color: "var(--mc-text-primary)" }}
+              >
+                Documents
+              </span>
+            </div>
+            <p className="text-xs" style={{ color: "var(--mc-text-muted)" }}>
+              Access presentations, fact sheets, and compliance documents
+            </p>
+          </Link>
+        )}
       </div>
+
+      {/* Inventory Overview */}
+      {inventoryStats && (
+        <div className="mt-6">
+          <h2
+            className="text-xs font-semibold tracking-[0.08em] uppercase mb-3"
+            style={{ color: "var(--mc-text-muted)" }}
+          >
+            {profile?.role === "distributor" ? "Inventory Overview" : "Product Availability"}
+          </h2>
+          {profile?.role === "client" ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Link href="/products" className="mc-card p-4 transition-all hover:translate-y-[-1px]">
+                <div className="flex items-center gap-2 mb-1">
+                  <Package className="w-4 h-4" style={{ color: "var(--mc-success)" }} strokeWidth={1.5} />
+                  <span className="text-[10px] font-semibold tracking-[0.08em] uppercase" style={{ color: "var(--mc-text-muted)" }}>
+                    Available Products
+                  </span>
+                </div>
+                <span className="text-xl font-semibold" style={{ color: "var(--mc-success)" }}>
+                  {inventoryStats.availableCount}
+                </span>
+                <p className="text-[10px] mt-0.5" style={{ color: "var(--mc-text-muted)" }}>
+                  in stock at your distributor
+                </p>
+              </Link>
+              <div className="mc-card p-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <AlertTriangle className="w-4 h-4" style={{ color: inventoryStats.outOfStockCount > 0 ? "var(--mc-error)" : "var(--mc-cream-subtle)" }} strokeWidth={1.5} />
+                  <span className="text-[10px] font-semibold tracking-[0.08em] uppercase" style={{ color: "var(--mc-text-muted)" }}>
+                    Out of Stock
+                  </span>
+                </div>
+                <span className="text-xl font-semibold" style={{ color: inventoryStats.outOfStockCount > 0 ? "var(--mc-error)" : "var(--mc-text-primary)" }}>
+                  {inventoryStats.outOfStockCount}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <Link href="/inventory" className="mc-card p-4 transition-all hover:translate-y-[-1px]">
+                <div className="flex items-center gap-2 mb-1">
+                  <Package className="w-4 h-4" style={{ color: "var(--mc-cream-subtle)" }} strokeWidth={1.5} />
+                  <span className="text-[10px] font-semibold tracking-[0.08em] uppercase" style={{ color: "var(--mc-text-muted)" }}>
+                    Products Tracked
+                  </span>
+                </div>
+                <span className="text-xl font-semibold" style={{ color: "var(--mc-text-primary)" }}>
+                  {inventoryStats.productsTracked}
+                </span>
+              </Link>
+              <div className="mc-card p-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <Warehouse className="w-4 h-4" style={{ color: "var(--mc-cream-subtle)" }} strokeWidth={1.5} />
+                  <span className="text-[10px] font-semibold tracking-[0.08em] uppercase" style={{ color: "var(--mc-text-muted)" }}>
+                    Total Stock
+                  </span>
+                </div>
+                <span className="text-xl font-semibold" style={{ color: "var(--mc-text-primary)" }}>
+                  {inventoryStats.totalBottles.toLocaleString()}
+                  <span className="text-xs font-normal ml-1.5" style={{ color: "var(--mc-text-muted)" }}>
+                    btl ({inventoryStats.totalCases.toLocaleString()} cs)
+                  </span>
+                </span>
+              </div>
+              <div className="mc-card p-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <AlertTriangle className="w-4 h-4" style={{ color: inventoryStats.lowStockCount > 0 ? "var(--mc-warning)" : "var(--mc-cream-subtle)" }} strokeWidth={1.5} />
+                  <span className="text-[10px] font-semibold tracking-[0.08em] uppercase" style={{ color: "var(--mc-text-muted)" }}>
+                    Low / Out of Stock
+                  </span>
+                </div>
+                <span className="text-xl font-semibold" style={{ color: inventoryStats.lowStockCount > 0 ? "var(--mc-warning)" : "var(--mc-text-primary)" }}>
+                  {inventoryStats.lowStockCount}
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

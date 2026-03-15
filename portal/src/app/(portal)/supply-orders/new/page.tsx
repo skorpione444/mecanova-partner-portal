@@ -148,10 +148,10 @@ export default function NewSupplyOrderPage() {
         onMouseLeave={(e) => (e.currentTarget.style.color = "var(--mc-text-muted)")}
       >
         <ArrowLeft className="w-3 h-3" />
-        Back to Supply Orders
+        Back to Buy Products
       </Link>
 
-      <PageHeader title="New Supply Order" description="Order products from Mecanova to restock your inventory" icon={Truck} />
+      <PageHeader title="New Order from Mecanova" description="Order products from Mecanova to restock your inventory" icon={Truck} />
 
       {error && (
         <div
@@ -328,7 +328,7 @@ export default function NewSupplyOrderPage() {
             disabled={submitting || lines.length === 0}
             className="mc-btn mc-btn-primary"
           >
-            {submitting ? "Submitting..." : "Submit Supply Order"}
+            {submitting ? "Submitting..." : "Submit Order"}
           </button>
           <Link href="/supply-orders" className="mc-btn mc-btn-ghost">
             Cancel

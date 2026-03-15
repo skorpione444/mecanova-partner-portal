@@ -5,18 +5,18 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import type { UserRole } from "@mecanova/shared";
+import OnboardingTooltip from "@/components/OnboardingTooltip";
 import {
   LayoutDashboard,
   Package,
-  FileText,
   ShoppingCart,
-  Truck,
   LogOut,
   Menu,
   X,
   ChevronRight,
   Receipt,
   Warehouse,
+  BarChart3,
 } from "lucide-react";
 
 interface PortalShellProps {
@@ -33,11 +33,10 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/products", label: "Products", icon: Package },
-  { href: "/documents", label: "Documents", icon: FileText },
   { href: "/orders", label: "Orders", icon: ShoppingCart },
-  { href: "/invoices", label: "Invoices", icon: Receipt },
   { href: "/inventory", label: "Inventory", icon: Warehouse, roles: ["distributor"] },
-  { href: "/supply-orders", label: "Supply Orders", icon: Truck, roles: ["distributor"] },
+  { href: "/invoices", label: "Invoices", icon: Receipt },
+  { href: "/analytics", label: "Analytics", icon: BarChart3 },
 ];
 
 export default function PortalShell({ children }: PortalShellProps) {
@@ -119,6 +118,7 @@ export default function PortalShell({ children }: PortalShellProps) {
 
   const isActive = (href: string) => {
     if (href === "/dashboard") return pathname === "/dashboard";
+    if (href === "/orders") return pathname?.startsWith("/orders") || pathname?.startsWith("/supply-orders") || false;
     return pathname?.startsWith(href) || false;
   };
 
@@ -275,6 +275,7 @@ export default function PortalShell({ children }: PortalShellProps) {
           </div>
         </main>
       </div>
+      <OnboardingTooltip role={role} />
     </div>
   );
 }

@@ -11,6 +11,7 @@ import {
   ShoppingCart,
   Plus,
   ArrowRight,
+  Truck,
 } from "lucide-react";
 
 interface OrderRow {
@@ -18,6 +19,13 @@ interface OrderRow {
   status: string;
   created_at: string;
   counterpart_name: string | null;
+  item_count: number;
+}
+
+interface SupplyOrderRow {
+  id: string;
+  status: string;
+  created_at: string;
   item_count: number;
 }
 
@@ -44,8 +52,10 @@ const STATUS_BORDER_MAP: Record<string, string> = {
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<OrderRow[]>([]);
+  const [supplyOrders, setSupplyOrders] = useState<SupplyOrderRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [role, setRole] = useState<UserRole | null>(null);
+  const [tab, setTab] = useState<"client" | "buy">("client");
   const supabase = createClient();
 
   const loadOrders = useCallback(async () => {
@@ -62,6 +72,7 @@ export default function OrdersPage() {
 
     if (!profile) return;
     const userRole = profile.role as UserRole;
+    const myPartnerId = profile.partner_id;
     setRole(userRole);
 
     const { data: allOrders } = await supabase
@@ -71,6 +82,7 @@ export default function OrdersPage() {
 
     if (!allOrders) {
       setOrders([]);
+      setSupplyOrders([]);
       setLoading(false);
       return;
     }
@@ -78,8 +90,13 @@ export default function OrdersPage() {
     // For distributors viewing "Orders" page, filter out supply orders
     // (where they are the client ordering from Mecanova)
     const filteredOrders = userRole === "distributor"
-      ? allOrders.filter((o) => o.distributor_id === profile.partner_id)
+      ? allOrders.filter((o) => o.distributor_id === myPartnerId)
       : allOrders;
+
+    // Supply orders: orders where distributor is the client (buying from Mecanova)
+    const supplyOrdersList = userRole === "distributor" && myPartnerId
+      ? allOrders.filter((o) => o.client_id === myPartnerId)
+      : [];
 
     // Resolve counterpart names:
     // - Clients see the distributor name
@@ -101,13 +118,17 @@ export default function OrdersPage() {
       nameMap = new Map((partners || []).map((p) => [p.id, p.name]));
     }
 
-    const orderIds = filteredOrders.map((o) => o.id);
+    // Get item counts for all orders (client orders + supply orders)
+    const allOrderIds = [
+      ...filteredOrders.map((o) => o.id),
+      ...supplyOrdersList.map((o) => o.id),
+    ];
     let itemCountMap = new Map<string, number>();
-    if (orderIds.length > 0) {
+    if (allOrderIds.length > 0) {
       const { data: items } = await supabase
         .from("order_request_items")
         .select("order_request_id")
-        .in("order_request_id", orderIds);
+        .in("order_request_id", allOrderIds);
       for (const item of items || []) {
         itemCountMap.set(item.order_request_id, (itemCountMap.get(item.order_request_id) || 0) + 1);
       }
@@ -125,6 +146,16 @@ export default function OrdersPage() {
         };
       })
     );
+
+    setSupplyOrders(
+      supplyOrdersList.map((o) => ({
+        id: o.id,
+        status: o.status,
+        created_at: o.created_at,
+        item_count: itemCountMap.get(o.id) || 0,
+      }))
+    );
+
     setLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -135,9 +166,14 @@ export default function OrdersPage() {
 
   const isDistributor = role === "distributor";
   const counterpartLabel = isDistributor ? "Client" : "Distributor";
-  const pageDescription = isDistributor
-    ? `${orders.length} orders received from clients`
-    : `${orders.length} orders`;
+
+  const activeOrders = tab === "client" ? orders : supplyOrders;
+  const pageTitle = tab === "buy" ? "Buy Products" : (isDistributor ? "Orders Received" : "Orders");
+  const pageDescription = tab === "buy"
+    ? `${supplyOrders.length} orders from Mecanova`
+    : isDistributor
+      ? `${orders.length} orders received from clients`
+      : `${orders.length} orders`;
 
   if (loading) {
     return (
@@ -155,11 +191,16 @@ export default function OrdersPage() {
   return (
     <div>
       <PageHeader
-        title={isDistributor ? "Orders Received" : "Orders"}
+        title={pageTitle}
         description={pageDescription}
-        icon={ShoppingCart}
+        icon={tab === "buy" ? Truck : ShoppingCart}
         actions={
-          role === "client" ? (
+          tab === "buy" ? (
+            <Link href="/supply-orders/new" className="mc-btn mc-btn-primary">
+              <Plus className="w-3.5 h-3.5" />
+              New Order
+            </Link>
+          ) : role === "client" ? (
             <Link href="/orders/new" className="mc-btn mc-btn-primary">
               <Plus className="w-3.5 h-3.5" />
               New Order
@@ -168,17 +209,55 @@ export default function OrdersPage() {
         }
       />
 
-      {orders.length === 0 ? (
+      {isDistributor && (
+        <div className="flex mb-5" style={{ border: "1px solid var(--mc-border)" }}>
+          <button
+            onClick={() => setTab("client")}
+            className="px-4 py-1.5 text-[11px] font-medium tracking-wide transition-colors"
+            style={{
+              background: tab === "client" ? "var(--mc-cream-subtle)" : "transparent",
+              color: tab === "client" ? "var(--mc-black)" : "var(--mc-text-muted)",
+            }}
+          >
+            Client Orders
+          </button>
+          <button
+            onClick={() => setTab("buy")}
+            className="px-4 py-1.5 text-[11px] font-medium tracking-wide transition-colors"
+            style={{
+              background: tab === "buy" ? "var(--mc-cream-subtle)" : "transparent",
+              color: tab === "buy" ? "var(--mc-black)" : "var(--mc-text-muted)",
+            }}
+          >
+            Buy from Mecanova
+          </button>
+        </div>
+      )}
+
+      {activeOrders.length === 0 ? (
         <EmptyState
-          icon={ShoppingCart}
-          title={isDistributor ? "No orders received yet" : "No orders yet"}
+          icon={tab === "buy" ? Truck : ShoppingCart}
+          title={
+            tab === "buy"
+              ? "No orders yet"
+              : isDistributor
+                ? "No orders received yet"
+                : "No orders yet"
+          }
           description={
-            isDistributor
-              ? "Orders from your clients will appear here"
-              : "Your orders will appear here"
+            tab === "buy"
+              ? "Order products directly from Mecanova to restock your inventory"
+              : isDistributor
+                ? "Orders from your clients will appear here"
+                : "Your orders will appear here"
           }
           action={
-            role === "client" ? (
+            tab === "buy" ? (
+              <Link href="/supply-orders/new" className="mc-btn mc-btn-primary">
+                <Plus className="w-3.5 h-3.5" />
+                Create Order
+              </Link>
+            ) : role === "client" ? (
               <Link href="/orders/new" className="mc-btn mc-btn-primary">
                 <Plus className="w-3.5 h-3.5" />
                 Create Order
@@ -193,16 +272,17 @@ export default function OrdersPage() {
               <tr>
                 <th>Order</th>
                 <th>Status</th>
-                <th>{counterpartLabel}</th>
+                {tab === "client" && <th>{counterpartLabel}</th>}
                 <th>Items</th>
                 <th>Date</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              {orders.map((order) => {
+              {activeOrders.map((order) => {
                 const statusKey = order.status as ActiveOrderStatus;
                 const colorKey = ORDER_STATUS_COLORS[statusKey] || "info";
+                const isSupply = tab === "buy";
                 return (
                   <tr key={order.id}>
                     <td>
@@ -222,11 +302,13 @@ export default function OrdersPage() {
                         {ORDER_STATUS_LABELS[statusKey] || order.status}
                       </span>
                     </td>
-                    <td>
-                      <span className="text-xs" style={{ color: "var(--mc-text-secondary)" }}>
-                        {order.counterpart_name || "—"}
-                      </span>
-                    </td>
+                    {tab === "client" && (
+                      <td>
+                        <span className="text-xs" style={{ color: "var(--mc-text-secondary)" }}>
+                          {(order as OrderRow).counterpart_name || "—"}
+                        </span>
+                      </td>
+                    )}
                     <td>
                       <span className="text-xs" style={{ color: "var(--mc-text-muted)" }}>
                         {order.item_count} items
@@ -239,7 +321,7 @@ export default function OrdersPage() {
                     </td>
                     <td>
                       <Link
-                        href={`/orders/${order.id}`}
+                        href={isSupply ? `/supply-orders/${order.id}` : `/orders/${order.id}`}
                         className="inline-flex items-center gap-1 text-[11px] transition-colors"
                         style={{ color: "var(--mc-cream-subtle)" }}
                         onMouseEnter={(e) => (e.currentTarget.style.color = "var(--mc-cream)")}

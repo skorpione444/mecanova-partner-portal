@@ -262,8 +262,8 @@ export default function InvoiceDetailPage() {
       )}
 
       <div className="max-w-2xl space-y-5">
-        {/* Distributor Actions */}
-        {isDistributor && invoice.status !== "paid" && (
+        {/* Actions - both roles can mark as paid */}
+        {invoice.status !== "paid" && (
           <div className="mc-card p-5">
             <h3
               className="text-xs font-semibold tracking-[0.08em] uppercase mb-3"
@@ -271,6 +271,11 @@ export default function InvoiceDetailPage() {
             >
               Actions
             </h3>
+            {!isDistributor && (
+              <p className="text-xs mb-4" style={{ color: "var(--mc-text-secondary)" }}>
+                Confirm payment for this invoice to update your records and notify your distributor.
+              </p>
+            )}
             <div className="flex flex-wrap gap-3">
               <button
                 onClick={handleMarkPaid}
@@ -284,25 +289,27 @@ export default function InvoiceDetailPage() {
                 )}
                 {actionLoading === "paid" ? "Updating..." : "Mark as Paid"}
               </button>
-              <button
-                onClick={handleSendReminder}
-                disabled={actionLoading !== null}
-                className="mc-btn inline-flex items-center gap-1.5"
-                style={{
-                  background: "transparent",
-                  border: "1px solid var(--mc-warning-light)",
-                  color: "var(--mc-warning)",
-                }}
-              >
-                {actionLoading === "reminder" ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <Bell className="w-3.5 h-3.5" />
-                )}
-                {actionLoading === "reminder" ? "Sending..." : "Send Reminder"}
-              </button>
+              {isDistributor && (
+                <button
+                  onClick={handleSendReminder}
+                  disabled={actionLoading !== null}
+                  className="mc-btn inline-flex items-center gap-1.5"
+                  style={{
+                    background: "transparent",
+                    border: "1px solid var(--mc-warning-light)",
+                    color: "var(--mc-warning)",
+                  }}
+                >
+                  {actionLoading === "reminder" ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Bell className="w-3.5 h-3.5" />
+                  )}
+                  {actionLoading === "reminder" ? "Sending..." : "Send Reminder"}
+                </button>
+              )}
             </div>
-            {invoice.last_reminder_at && (
+            {isDistributor && invoice.last_reminder_at && (
               <p className="text-[10px] mt-3" style={{ color: "var(--mc-text-muted)" }}>
                 Last reminder sent: {formatDate(invoice.last_reminder_at)}
               </p>

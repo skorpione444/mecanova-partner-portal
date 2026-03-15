@@ -22,6 +22,7 @@ import {
   MapPin,
   FileText,
   User,
+  Receipt,
 } from "lucide-react";
 
 interface OrderDetail {
@@ -75,6 +76,7 @@ export default function OrderDetailPage() {
   const [deliveryDate, setDeliveryDate] = useState("");
   const [deliveryNote, setDeliveryNote] = useState("");
   const [showEditDelivery, setShowEditDelivery] = useState(false);
+  const [showInvoicePrompt, setShowInvoicePrompt] = useState(false);
   const supabase = createClient();
 
   const loadOrder = useCallback(async () => {
@@ -218,6 +220,7 @@ export default function OrderDetailPage() {
     }
     await loadOrder();
     setActionLoading(null);
+    setShowInvoicePrompt(true);
   };
 
   const handleSaveDeliveryEstimate = async () => {
@@ -664,6 +667,58 @@ export default function OrderDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Invoice Prompt Modal */}
+      {showInvoicePrompt && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ background: "rgba(10, 11, 13, 0.8)" }}
+          onClick={() => setShowInvoicePrompt(false)}
+        >
+          <div
+            className="mc-card p-6 w-full max-w-md mc-animate-fade"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3 mb-1">
+              <div
+                className="w-8 h-8 flex items-center justify-center"
+                style={{ background: "var(--mc-success-bg)", border: "1px solid var(--mc-success-light)" }}
+              >
+                <Truck className="w-4 h-4" style={{ color: "var(--mc-success)" }} />
+              </div>
+              <h3
+                className="text-sm font-semibold"
+                style={{ color: "var(--mc-text-primary)" }}
+              >
+                Order Delivered
+              </h3>
+            </div>
+            <p className="text-xs mb-5 mt-3" style={{ color: "var(--mc-text-muted)" }}>
+              This order has been marked as delivered. Would you like to create an invoice for this delivery?
+            </p>
+            <div className="flex gap-3">
+              <Link
+                href={`/invoices/new?client=${order.client_id}&order=${order.id}`}
+                className="mc-btn mc-btn-primary flex-1 inline-flex items-center justify-center gap-1.5"
+              >
+                <Receipt className="w-3.5 h-3.5" />
+                Create Invoice
+              </Link>
+              <button
+                onClick={() => setShowInvoicePrompt(false)}
+                className="mc-btn"
+                style={{
+                  background: "transparent",
+                  border: "1px solid var(--mc-border)",
+                  color: "var(--mc-text-secondary)",
+                }}
+              >
+                Skip
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delivery Estimate Modal */}
       {(showDeliveryModal || showEditDelivery) && (
