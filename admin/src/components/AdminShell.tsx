@@ -6,6 +6,7 @@ import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import {
   LayoutDashboard,
+  BarChart3,
   Users,
   Package,
   ClipboardList,
@@ -31,6 +32,7 @@ const NAV_SECTIONS = [
     label: "Overview",
     items: [
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/kpis", label: "KPIs", icon: BarChart3 },
     ],
   },
   {

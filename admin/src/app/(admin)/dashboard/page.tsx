@@ -17,6 +17,7 @@ import {
   Contact,
   Scale,
   Settings,
+  BarChart3,
   ArrowRight,
   AlertTriangle,
 } from "lucide-react";
@@ -33,6 +34,12 @@ interface DashboardData {
 }
 
 const MODULE_CARDS = [
+  {
+    href: "/kpis",
+    label: "KPIs",
+    desc: "Runway, pipeline & unit economics",
+    icon: BarChart3,
+  },
   {
     href: "/partners",
     label: "Partners",

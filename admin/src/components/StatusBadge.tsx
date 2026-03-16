@@ -38,7 +38,7 @@ export default function StatusBadge({ status, large }: StatusBadgeProps) {
   const label = isActive
     ? ORDER_STATUS_LABELS[status as ActiveOrderStatus]
     : status;
-  const c = colorStyles[colorKey];
+  const c = colorStyles[colorKey as keyof typeof colorStyles] ?? colorStyles.info;
 
   return (
     <span

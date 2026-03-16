@@ -108,6 +108,50 @@ export type Database = {
           },
         ]
       }
+      kpi_manual_entries: {
+        Row: {
+          created_at: string
+          id: string
+          kpi_type: string
+          notes: string | null
+          product_id: string | null
+          recorded_at: string
+          recorded_by: string
+          value_json: Json | null
+          value_numeric: number | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kpi_type: string
+          notes?: string | null
+          product_id?: string | null
+          recorded_at?: string
+          recorded_by: string
+          value_json?: Json | null
+          value_numeric?: number | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kpi_type?: string
+          notes?: string | null
+          product_id?: string | null
+          recorded_at?: string
+          recorded_by?: string
+          value_json?: Json | null
+          value_numeric?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kpi_manual_entries_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_distributors: {
         Row: {
           assignment_locked: boolean | null
@@ -610,3 +654,4 @@ export type InventoryStatusEnum = Enums<"inventory_status_enum">
 export type ProductAssetType = Enums<"product_asset_type_enum">
 export type InvoiceStatus = Enums<"invoice_status_enum">
 export type Invoice = Tables<"invoices">
+export type KPIManualEntry = Tables<"kpi_manual_entries">
