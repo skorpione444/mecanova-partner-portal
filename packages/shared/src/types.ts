@@ -152,6 +152,36 @@ export type Database = {
           },
         ]
       }
+      research_sessions: {
+        Row: {
+          id: string
+          query: string
+          template_used: string | null
+          results: Json
+          result_count: number
+          admin_user_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          query: string
+          template_used?: string | null
+          results?: Json
+          result_count?: number
+          admin_user_id: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          query?: string
+          template_used?: string | null
+          results?: Json
+          result_count?: number
+          admin_user_id?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
       client_distributors: {
         Row: {
           assignment_locked: boolean | null

@@ -3,12 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --port 3001",
+    "dev": "next dev --port 3005",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.80.0",
     "@mecanova/shared": "*",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.95.3",
@@ -28,7 +29,3 @@
     "typescript": "^5"
   }
 }
-
-
-
-

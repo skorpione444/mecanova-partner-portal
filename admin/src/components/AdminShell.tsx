@@ -16,6 +16,7 @@ import {
   DollarSign,
   Contact,
   Scale,
+  Search,
   Settings,
   LogOut,
   Menu,
@@ -52,6 +53,7 @@ const NAV_SECTIONS = [
       { href: "/finance", label: "Finance", icon: DollarSign },
       { href: "/crm", label: "CRM", icon: Contact },
       { href: "/contracts", label: "Contracts", icon: Scale },
+      { href: "/research", label: "Research", icon: Search },
     ],
   },
   {
