@@ -44,7 +44,6 @@ interface MovementRow {
 
 const STATUS_COLORS: Record<InventoryStatusEnum, { bg: string; text: string }> = {
   in_stock: { bg: "var(--mc-success-bg)", text: "var(--mc-success)" },
-  limited: { bg: "var(--mc-warning-bg)", text: "var(--mc-warning)" },
   out: { bg: "var(--mc-error-bg)", text: "var(--mc-error)" },
 };
 
@@ -220,7 +219,7 @@ export default function InventoryPage() {
 
   const totalCases = stock.reduce((sum, s) => sum + s.on_hand_qty, 0);
   const totalBottles = stock.reduce((sum, s) => sum + s.on_hand_qty * s.case_size, 0);
-  const lowStockCount = stock.filter((s) => s.status === "limited" || s.status === "out").length;
+  const lowStockCount = stock.filter((s) => s.status === "out").length;
 
   return (
     <div>

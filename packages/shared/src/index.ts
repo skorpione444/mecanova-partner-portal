@@ -15,6 +15,12 @@ export type {
   Document,
   ClientDistributor,
   Invoice,
+  KPIManualEntry,
+  Prospect,
+  CRMInteraction,
+  CRMStatus,
+  VenueType,
+  CRMInteractionType,
   UserRole,
   OrderStatus,
   PartnerType,
@@ -50,6 +56,8 @@ export {
   INVOICE_STATUS_COLORS,
   INVENTORY_ADJUSTMENT_TYPES,
   INVENTORY_ADJUSTMENT_LABELS,
+  VENUE_TYPES,
+  VENUE_TYPE_LABELS,
 } from "./constants";
 
 export type {

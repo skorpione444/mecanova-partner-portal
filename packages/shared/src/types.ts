@@ -439,15 +439,21 @@ export type Database = {
           contact_email: string | null
           contact_person: string | null
           contact_phone: string | null
+          contact_position: string | null
           country: string | null
           created_at: string
+          crm_status: Database["public"]["Enums"]["crm_status_enum"] | null
+          google_place_id: string | null
           id: string
           is_mecanova: boolean
+          lat: number | null
+          lng: number | null
           name: string
           partner_type: Database["public"]["Enums"]["partner_type"]
           service_countries: string[] | null
           shipping_address: Json | null
           vat_id: string | null
+          venue_type: Database["public"]["Enums"]["venue_type_enum"] | null
         }
         Insert: {
           billing_address?: Json | null
@@ -456,34 +462,168 @@ export type Database = {
           contact_email?: string | null
           contact_person?: string | null
           contact_phone?: string | null
+          contact_position?: string | null
           country?: string | null
           created_at?: string
+          crm_status?: Database["public"]["Enums"]["crm_status_enum"] | null
+          google_place_id?: string | null
           id?: string
           is_mecanova?: boolean
+          lat?: number | null
+          lng?: number | null
           name: string
           partner_type?: Database["public"]["Enums"]["partner_type"]
           service_countries?: string[] | null
           shipping_address?: Json | null
           vat_id?: string | null
+          venue_type?: Database["public"]["Enums"]["venue_type_enum"] | null
         }
         Update: {
           billing_address?: Json | null
           capacity_status?: string | null
           client_tier?: string | null
           contact_email?: string | null
-          contact_person?: string | null
           contact_phone?: string | null
+          contact_person?: string | null
+          contact_position?: string | null
           country?: string | null
           created_at?: string
+          crm_status?: Database["public"]["Enums"]["crm_status_enum"] | null
+          google_place_id?: string | null
           id?: string
           is_mecanova?: boolean
+          lat?: number | null
+          lng?: number | null
           name?: string
           partner_type?: Database["public"]["Enums"]["partner_type"]
           service_countries?: string[] | null
           shipping_address?: Json | null
           vat_id?: string | null
+          venue_type?: Database["public"]["Enums"]["venue_type_enum"] | null
         }
         Relationships: []
+      }
+      prospects: {
+        Row: {
+          id: string
+          name: string
+          address: string | null
+          city: string | null
+          lat: number | null
+          lng: number | null
+          venue_type: Database["public"]["Enums"]["venue_type_enum"] | null
+          crm_status: Database["public"]["Enums"]["crm_status_enum"]
+          google_place_id: string | null
+          contact_person: string | null
+          contact_email: string | null
+          contact_phone: string | null
+          notes: string | null
+          converted_to_partner_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          address?: string | null
+          city?: string | null
+          lat?: number | null
+          lng?: number | null
+          venue_type?: Database["public"]["Enums"]["venue_type_enum"] | null
+          crm_status?: Database["public"]["Enums"]["crm_status_enum"]
+          google_place_id?: string | null
+          contact_person?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
+          notes?: string | null
+          converted_to_partner_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          address?: string | null
+          city?: string | null
+          lat?: number | null
+          lng?: number | null
+          venue_type?: Database["public"]["Enums"]["venue_type_enum"] | null
+          crm_status?: Database["public"]["Enums"]["crm_status_enum"]
+          google_place_id?: string | null
+          contact_person?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
+          notes?: string | null
+          converted_to_partner_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prospects_converted_to_partner_id_fkey"
+            columns: ["converted_to_partner_id"]
+            isOneToOne: false
+            referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_interactions: {
+        Row: {
+          id: string
+          prospect_id: string | null
+          partner_id: string | null
+          interaction_type: Database["public"]["Enums"]["crm_interaction_type_enum"]
+          summary: string
+          body: string | null
+          file_path: string | null
+          file_name: string | null
+          occurred_at: string
+          created_by: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          prospect_id?: string | null
+          partner_id?: string | null
+          interaction_type: Database["public"]["Enums"]["crm_interaction_type_enum"]
+          summary: string
+          body?: string | null
+          file_path?: string | null
+          file_name?: string | null
+          occurred_at?: string
+          created_by: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          prospect_id?: string | null
+          partner_id?: string | null
+          interaction_type?: Database["public"]["Enums"]["crm_interaction_type_enum"]
+          summary?: string
+          body?: string | null
+          file_path?: string | null
+          file_name?: string | null
+          occurred_at?: string
+          created_by?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_interactions_prospect_id_fkey"
+            columns: ["prospect_id"]
+            isOneToOne: false
+            referencedRelation: "prospects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_interactions_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       product_assets: {
         Row: {
@@ -616,6 +756,9 @@ export type Database = {
       submit_order: { Args: { p_order_id: string }; Returns: undefined }
     }
     Enums: {
+      crm_status_enum: "uncontacted" | "contacted" | "negotiating" | "customer" | "inactive"
+      crm_interaction_type_enum: "email" | "call" | "meeting" | "note" | "file"
+      venue_type_enum: "bar" | "restaurant" | "hotel" | "wholesaler" | "private_customer" | "club" | "other"
       invoice_status_enum: "sent" | "paid" | "overdue"
       document_audience_enum: "all" | "distributor" | "client" | "internal"
       document_type_enum:
@@ -628,7 +771,7 @@ export type Database = {
         | "fact_sheet"
         | "brand_deck"
         | "spec_sheet"
-      inventory_status_enum: "in_stock" | "limited" | "out"
+      inventory_status_enum: "in_stock" | "out"
       order_status_enum:
         | "created"
         | "submitted"
@@ -673,6 +816,13 @@ export type InventoryStatus = Tables<"inventory_status">
 export type InventoryMovement = Tables<"inventory_movements">
 export type Document = Tables<"documents">
 export type ClientDistributor = Tables<"client_distributors">
+
+export type Prospect = Tables<"prospects">
+export type CRMInteraction = Tables<"crm_interactions">
+
+export type CRMStatus = Enums<"crm_status_enum">
+export type VenueType = Enums<"venue_type_enum">
+export type CRMInteractionType = Enums<"crm_interaction_type_enum">
 
 export type UserRole = Enums<"user_role">
 export type OrderStatus = Enums<"order_status_enum">

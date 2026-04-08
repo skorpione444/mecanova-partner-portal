@@ -80,7 +80,7 @@ export default function DashboardPage() {
                 .eq("distributor_id", cd.distributor_id);
 
               if (invRows) {
-                const availableCount = invRows.filter(r => r.status === "in_stock" || r.status === "limited").length;
+                const availableCount = invRows.filter(r => r.status === "in_stock").length;
                 const outOfStockCount = invRows.filter(r => r.status === "out").length;
 
                 setInventoryStats({
@@ -111,7 +111,7 @@ export default function DashboardPage() {
 
               const totalCases = invRows.reduce((sum, r) => sum + r.on_hand_qty, 0);
               const totalBottles = invRows.reduce((sum, r) => sum + r.on_hand_qty * (prodMap.get(r.product_id) || 6), 0);
-              const lowStockCount = invRows.filter(r => r.status === "limited" || r.status === "out").length;
+              const lowStockCount = invRows.filter(r => r.status === "out").length;
 
               setInventoryStats({
                 productsTracked: invRows.length,

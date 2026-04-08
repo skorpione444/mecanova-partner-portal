@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "mapbox-gl/dist/mapbox-gl.css";
 
 /* ═══════════════════════════════════════════════════════════════════════
    MECANOVA ADMIN DASHBOARD — Design System
@@ -112,6 +113,10 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* ── Animations ──────────────────────────────────────────────────────── */
+@keyframes ping {
+  75%, 100% { transform: scale(1.8); opacity: 0; }
+}
+
 @keyframes fadeInUp {
   from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }

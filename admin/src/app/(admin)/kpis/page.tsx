@@ -3,15 +3,11 @@
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import PageHeader from "@/components/PageHeader";
-import StatCard from "@/components/StatCard";
-import SparklineCSS from "@/components/SparklineCSS";
 import FunnelBar from "@/components/FunnelBar";
-import RunwayGauge from "@/components/RunwayGauge";
 import CostBreakdownBar from "@/components/CostBreakdownBar";
 import KPIInputPanel from "@/components/KPIInputPanel";
 import {
   BarChart3,
-  Wallet,
   CalendarClock,
   Users,
   ShoppingCart,
@@ -21,12 +17,10 @@ import {
   Package,
   MapPin,
   Clock,
+  ArrowRight,
 } from "lucide-react";
 
 interface KPIData {
-  bankBalance: number;
-  monthlyBurn: number;
-  runwayMonths: number;
   targetDate: string | null;
   daysToMarket: number | null;
   distributorPipeline: { contacted: number; in_conversation: number; committed: number };
@@ -37,7 +31,6 @@ interface KPIData {
     total: number;
     breakdown: { label: string; value: number }[];
   }[];
-  balanceHistory: number[];
 }
 
 interface Product {
@@ -52,26 +45,18 @@ export default function KPIsPage() {
   const supabase = createClient();
 
   const loadData = useCallback(async () => {
-    // Fetch latest snapshot per kpi_type + history for sparklines + products
-    const [latestRes, historyRes, productsRes] = await Promise.all([
+    // Fetch latest snapshot per kpi_type + products
+    const [latestRes, productsRes] = await Promise.all([
       supabase
         .from("kpi_manual_entries")
         .select("*")
         .in("kpi_type", [
-          "bank_balance",
-          "monthly_burn",
           "target_launch_date",
           "pipeline_distributor",
           "pipeline_client",
         ])
         .order("recorded_at", { ascending: false })
         .limit(50),
-      supabase
-        .from("kpi_manual_entries")
-        .select("value_numeric, recorded_at")
-        .eq("kpi_type", "bank_balance")
-        .order("recorded_at", { ascending: true })
-        .limit(8),
       supabase.from("products").select("id, name").eq("active", true),
     ]);
 
@@ -85,10 +70,6 @@ export default function KPIsPage() {
       if (!latest[row.kpi_type]) latest[row.kpi_type] = row;
     }
 
-    const bankBalance = Number(latest.bank_balance?.value_numeric ?? 0);
-    const monthlyBurn = Number(latest.monthly_burn?.value_numeric ?? 0);
-    const runwayMonths = monthlyBurn > 0 ? Math.round((bankBalance / monthlyBurn) * 10) / 10 : 0;
-
     const targetJson = latest.target_launch_date?.value_json as Record<string, unknown> | null;
     const targetDateStr = targetJson?.date as string | undefined;
     let daysToMarket: number | null = null;
@@ -100,8 +81,6 @@ export default function KPIsPage() {
     const defaultPipeline = { contacted: 0, in_conversation: 0, committed: 0 };
     const distPipeline = (latest.pipeline_distributor?.value_json as KPIData["distributorPipeline"] | null) ?? defaultPipeline;
     const clientPipeline = (latest.pipeline_client?.value_json as KPIData["clientPipeline"] | null) ?? defaultPipeline;
-
-    const balanceHistory = (historyRes.data || []).map((r) => Number(r.value_numeric ?? 0));
 
     // Landed costs per product
     const { data: costRows } = await supabase
@@ -136,15 +115,11 @@ export default function KPIsPage() {
     });
 
     setData({
-      bankBalance,
-      monthlyBurn,
-      runwayMonths,
       targetDate: targetDateStr || null,
       daysToMarket,
       distributorPipeline: distPipeline,
       clientPipeline: clientPipeline,
       landedCosts,
-      balanceHistory,
     });
     setLoading(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -181,13 +156,6 @@ export default function KPIsPage() {
     );
   }
 
-  const runwayColor: "success" | "warning" | "error" =
-    (data?.runwayMonths ?? 0) > 6
-      ? "success"
-      : (data?.runwayMonths ?? 0) >= 3
-        ? "warning"
-        : "error";
-
   const PHASE2_CARDS = [
     { label: "Revenue", icon: DollarSign },
     { label: "Gross Margin", icon: TrendingUp },
@@ -208,73 +176,37 @@ export default function KPIsPage() {
       {/* Input Panel */}
       <KPIInputPanel products={products} onSaved={handleSaved} />
 
-      {/* Section A — Survival Metrics */}
+      {/* Section A — Launch Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6 mc-stagger">
-        <div className="mc-card p-5">
-          <div className="flex items-start justify-between mb-3">
-            <div>
-              <p
-                className="text-[10px] font-semibold tracking-[0.08em] uppercase mb-2"
-                style={{ color: "var(--mc-text-muted)" }}
-              >
-                Cash Runway
-              </p>
-              <p
-                className="text-2xl font-medium"
-                style={{
-                  fontFamily: "var(--font-jost), Jost, sans-serif",
-                  color:
-                    runwayColor === "success"
-                      ? "var(--mc-success)"
-                      : runwayColor === "warning"
-                        ? "var(--mc-warning)"
-                        : "var(--mc-error)",
-                }}
-              >
-                {data?.runwayMonths ?? 0} months
-              </p>
-              <p className="text-[11px] mt-1" style={{ color: "var(--mc-text-tertiary)" }}>
-                {formatEUR(data?.bankBalance ?? 0)} at {formatEUR(data?.monthlyBurn ?? 0)}/mo
-              </p>
-            </div>
-            <div
-              className="w-9 h-9 flex items-center justify-center flex-shrink-0"
-              style={{
-                background:
-                  runwayColor === "success"
-                    ? "var(--mc-success-bg)"
-                    : runwayColor === "warning"
-                      ? "var(--mc-warning-bg)"
-                      : "var(--mc-error-bg)",
-              }}
+        {/* Finance pointer */}
+        <a
+          href="/finance"
+          className="mc-card mc-card-interactive p-5 flex items-start justify-between"
+        >
+          <div>
+            <p
+              className="text-[10px] font-semibold tracking-[0.08em] uppercase mb-2"
+              style={{ color: "var(--mc-text-muted)" }}
             >
-              <Wallet
-                className="w-[18px] h-[18px]"
-                style={{
-                  color:
-                    runwayColor === "success"
-                      ? "var(--mc-success)"
-                      : runwayColor === "warning"
-                        ? "var(--mc-warning)"
-                        : "var(--mc-error)",
-                }}
-                strokeWidth={1.5}
-              />
-            </div>
+              Cash & Runway
+            </p>
+            <p
+              className="text-sm font-medium"
+              style={{ color: "var(--mc-text-primary)" }}
+            >
+              Moved to Finance
+            </p>
+            <p className="text-[11px] mt-1" style={{ color: "var(--mc-text-muted)" }}>
+              Bank balance, burn rate, and runway are now live in the Finance dashboard.
+            </p>
           </div>
-          <RunwayGauge months={data?.runwayMonths ?? 0} />
-          {data?.balanceHistory && data.balanceHistory.length > 1 && (
-            <div className="mt-3">
-              <p
-                className="text-[9px] font-semibold tracking-[0.08em] uppercase mb-1"
-                style={{ color: "var(--mc-text-muted)" }}
-              >
-                Balance Trend
-              </p>
-              <SparklineCSS data={data.balanceHistory} color="var(--mc-cream-subtle)" height={24} />
-            </div>
-          )}
-        </div>
+          <div
+            className="w-9 h-9 flex items-center justify-center flex-shrink-0"
+            style={{ background: "rgba(236,223,204,0.08)" }}
+          >
+            <ArrowRight className="w-[18px] h-[18px]" style={{ color: "var(--mc-cream)" }} strokeWidth={1.5} />
+          </div>
+        </a>
 
         <div className="mc-card p-5">
           <div className="flex items-start justify-between">

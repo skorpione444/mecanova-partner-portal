@@ -6,7 +6,6 @@ export const ACTIVE_ORDER_STATUSES = [
   "submitted",
   "accepted",
   "rejected",
-  "fulfilled",
   "delivered",
   "cancelled",
 ] as const satisfies readonly OrderStatus[];
@@ -19,7 +18,6 @@ export const ORDER_STATUS_LABELS: Record<ActiveOrderStatus, string> = {
   submitted: "Submitted",
   accepted: "Accepted",
   rejected: "Rejected",
-  fulfilled: "Fulfilled",
   delivered: "Delivered",
   cancelled: "Cancelled",
 };
@@ -30,7 +28,6 @@ export const ORDER_STATUS_COLORS: Record<ActiveOrderStatus, string> = {
   submitted: "warning",
   accepted: "success",
   rejected: "error",
-  fulfilled: "success",
   delivered: "delivered",
   cancelled: "error",
 };
@@ -38,7 +35,6 @@ export const ORDER_STATUS_COLORS: Record<ActiveOrderStatus, string> = {
 /** Human-readable labels for inventory statuses */
 export const INVENTORY_STATUS_LABELS: Record<InventoryStatusEnum, string> = {
   in_stock: "In Stock",
-  limited: "Limited",
   out: "Out of Stock",
 };
 
@@ -133,6 +129,20 @@ export const CAPACITY_STATUS_LABELS: Record<CapacityStatus, string> = {
   open: "Open",
   limited: "Limited",
   paused: "Paused",
+};
+
+// ── Venue type constants ─────────────────────────────────────────────
+
+export const VENUE_TYPES = ["bar", "restaurant", "hotel", "wholesaler", "private_customer", "club", "other"] as const;
+
+export const VENUE_TYPE_LABELS: Record<string, string> = {
+  bar: "Bar",
+  restaurant: "Restaurant",
+  hotel: "Hotel",
+  wholesaler: "Wholesaler",
+  private_customer: "Private Customer",
+  club: "Club",
+  other: "Other",
 };
 
 // ── Invoice constants ────────────────────────────────────────────────

@@ -1,0 +1,2 @@
+-- Migration applied directly via Supabase dashboard
+-- Placeholder to synchronize local migration history

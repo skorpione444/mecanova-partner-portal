@@ -6,8 +6,6 @@ import { ChevronDown, ChevronUp, Save } from "lucide-react";
 import type { Json } from "@mecanova/shared";
 
 interface LatestValues {
-  bank_balance: number;
-  monthly_burn: number;
   target_launch_date: string;
   pipeline_distributor: { contacted: number; in_conversation: number; committed: number };
   pipeline_client: { contacted: number; in_conversation: number; committed: number };
@@ -33,8 +31,6 @@ interface KPIInputPanelProps {
 }
 
 const DEFAULT_VALUES: LatestValues = {
-  bank_balance: 0,
-  monthly_burn: 0,
   target_launch_date: "",
   pipeline_distributor: { contacted: 0, in_conversation: 0, committed: 0 },
   pipeline_client: { contacted: 0, in_conversation: 0, committed: 0 },
@@ -51,7 +47,7 @@ export default function KPIInputPanel({ products, onSaved }: KPIInputPanelProps)
   useEffect(() => {
     if (!open) return;
     const loadLatest = async () => {
-      const types = ["bank_balance", "monthly_burn", "target_launch_date", "pipeline_distributor", "pipeline_client"];
+      const types = ["target_launch_date", "pipeline_distributor", "pipeline_client"];
       const { data } = await supabase
         .from("kpi_manual_entries")
         .select("*")
@@ -69,8 +65,6 @@ export default function KPIInputPanel({ products, onSaved }: KPIInputPanelProps)
       const targetJson = latest.target_launch_date?.value_json as Record<string, unknown> | null;
       setValues((prev) => ({
         ...prev,
-        bank_balance: Number(latest.bank_balance?.value_numeric ?? prev.bank_balance),
-        monthly_burn: Number(latest.monthly_burn?.value_numeric ?? prev.monthly_burn),
         target_launch_date: (targetJson?.date as string) ?? prev.target_launch_date,
         pipeline_distributor: (latest.pipeline_distributor?.value_json as LatestValues["pipeline_distributor"] | null) ?? prev.pipeline_distributor,
         pipeline_client: (latest.pipeline_client?.value_json as LatestValues["pipeline_client"] | null) ?? prev.pipeline_client,
@@ -92,8 +86,6 @@ export default function KPIInputPanel({ products, onSaved }: KPIInputPanelProps)
       product_id?: string | null;
       recorded_by: string;
     }[] = [
-      { kpi_type: "bank_balance", value_numeric: values.bank_balance, value_json: null, product_id: null, recorded_by: user.id },
-      { kpi_type: "monthly_burn", value_numeric: values.monthly_burn, value_json: null, product_id: null, recorded_by: user.id },
       { kpi_type: "pipeline_distributor", value_numeric: null, value_json: values.pipeline_distributor, product_id: null, recorded_by: user.id },
       { kpi_type: "pipeline_client", value_numeric: null, value_json: values.pipeline_client, product_id: null, recorded_by: user.id },
     ];
@@ -170,17 +162,6 @@ export default function KPIInputPanel({ products, onSaved }: KPIInputPanelProps)
       {open && (
         <div className="px-5 pb-5" style={{ borderTop: "1px solid var(--mc-border-light)" }}>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-4">
-            {/* Cash Section */}
-            <div>
-              <h4 className="text-[10px] font-semibold tracking-[0.08em] uppercase mb-3" style={{ color: "var(--mc-cream-subtle)" }}>
-                Cash
-              </h4>
-              <div className="grid grid-cols-2 gap-3">
-                {numInput("Bank Balance", values.bank_balance, (v) => setValues({ ...values, bank_balance: v }), "EUR")}
-                {numInput("Monthly Burn Rate", values.monthly_burn, (v) => setValues({ ...values, monthly_burn: v }), "EUR")}
-              </div>
-            </div>
-
             {/* Timeline Section */}
             <div>
               <h4 className="text-[10px] font-semibold tracking-[0.08em] uppercase mb-3" style={{ color: "var(--mc-cream-subtle)" }}>
