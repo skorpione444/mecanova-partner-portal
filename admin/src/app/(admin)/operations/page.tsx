@@ -986,6 +986,7 @@ function OperationsPageContent() {
     if (activeTab === "stock" && !stockLoaded) loadStock();
     if (activeTab === "orders" && !ordersLoaded) loadOrders();
     if (activeTab === "supply" && !supplyLoaded) loadSupply();
+    if (activeTab === "planning" && !planningLoaded) loadPlanning();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
@@ -1089,6 +1090,7 @@ function OperationsPageContent() {
       }
       // If destination had no row yet, reload stock to get full row
       if (stockLoaded) setStockLoaded(false);
+      setPlanningLoaded(false);
       return prev;
     });
     loadSupply();
@@ -1341,6 +1343,7 @@ function OperationsPageContent() {
     setOrdersLoaded(false);
     loadOrders();
     if (stockLoaded) setStockLoaded(false);
+    setPlanningLoaded(false);
   };
 
   const submitNewOrder = async () => {
@@ -1442,6 +1445,7 @@ function OperationsPageContent() {
     setCancelDestructionModal(null);
     setOrdersLoaded(false);
     setStockLoaded(false);
+    setPlanningLoaded(false);
     loadOrders();
   };
 
@@ -1522,6 +1526,7 @@ function OperationsPageContent() {
     setDestructionAvailableStock(null);
     setOrdersLoaded(false);
     setStockLoaded(false);
+    setPlanningLoaded(false);
     loadOrders();
   };
 
@@ -1569,11 +1574,9 @@ function OperationsPageContent() {
     }
 
     loadSupply();
-    // Invalidate stock if loaded
-    if (stockLoaded) {
-      setStockLoaded(false);
-      setStockLoaded(false);
-    }
+    // Invalidate stock and planning if loaded
+    if (stockLoaded) setStockLoaded(false);
+    setPlanningLoaded(false);
   };
 
   const cancelSupplyOrder = async (id: string) => {
