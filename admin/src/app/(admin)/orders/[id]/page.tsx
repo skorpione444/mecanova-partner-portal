@@ -180,7 +180,7 @@ export default function OrderDetailPage() {
         if (existing) {
           await supabase.from("inventory_status").update({
             on_hand_qty: newQty,
-            status: newQty <= 0 ? "out" : newQty < 10 ? "limited" : "in_stock",
+            status: newQty <= 0 ? "out" : "in_stock",
             updated_at: now,
           }).eq("product_id", item.product_id).eq("distributor_id", distId);
         }
@@ -250,13 +250,13 @@ export default function OrderDetailPage() {
           if (existing) {
             await supabase.from("inventory_status").update({
               on_hand_qty: newQty,
-              status: newQty <= 0 ? "out" : newQty < 10 ? "limited" : "in_stock",
+              status: newQty <= 0 ? "out" : "in_stock",
               updated_at: now,
             }).eq("product_id", item.product_id).eq("distributor_id", distId);
           } else {
             await supabase.from("inventory_status").insert({
               product_id: item.product_id, distributor_id: distId,
-              on_hand_qty: newQty, status: newQty < 10 ? "limited" : "in_stock",
+              on_hand_qty: newQty, status: "in_stock",
             });
           }
           await supabase.from("inventory_movements").insert({
@@ -296,13 +296,13 @@ export default function OrderDetailPage() {
         if (existing) {
           await supabase.from("inventory_status").update({
             on_hand_qty: newQty,
-            status: newQty <= 0 ? "out" : newQty < 10 ? "limited" : "in_stock",
+            status: newQty <= 0 ? "out" : "in_stock",
             updated_at: now,
           }).eq("product_id", product_id).eq("distributor_id", distributor_id);
         } else {
           await supabase.from("inventory_status").insert({
             product_id, distributor_id,
-            on_hand_qty: newQty, status: newQty < 10 ? "limited" : "in_stock",
+            on_hand_qty: newQty, status: "in_stock",
           });
         }
         await supabase.from("inventory_movements").insert({

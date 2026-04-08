@@ -122,7 +122,7 @@ export default function InventoryPage() {
         .from("inventory_status")
         .update({
           on_hand_qty: newQty,
-          status: newQty <= 0 ? "out" : newQty < 10 ? "limited" : "in_stock",
+          status: newQty <= 0 ? "out" : "in_stock",
           updated_at: new Date().toISOString(),
         })
         .eq("product_id", row.product_id)
@@ -204,7 +204,6 @@ export default function InventoryPage() {
             >
               <option value="all">All Status</option>
               <option value="in_stock">In Stock</option>
-              <option value="limited">Limited</option>
               <option value="out">Out of Stock</option>
             </select>
           </div>
@@ -283,21 +282,15 @@ export default function InventoryPage() {
                               background:
                                 row.status === "in_stock"
                                   ? "var(--mc-success-bg)"
-                                  : row.status === "limited"
-                                  ? "var(--mc-warning-bg)"
                                   : "var(--mc-error-bg)",
                               border: `1px solid ${
                                 row.status === "in_stock"
                                   ? "var(--mc-success-light)"
-                                  : row.status === "limited"
-                                  ? "var(--mc-warning-light)"
                                   : "var(--mc-error-light)"
                               }`,
                               color:
                                 row.status === "in_stock"
                                   ? "var(--mc-success)"
-                                  : row.status === "limited"
-                                  ? "var(--mc-warning)"
                                   : "var(--mc-error)",
                             }}
                           >
