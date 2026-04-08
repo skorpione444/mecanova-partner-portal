@@ -360,6 +360,12 @@ function OperationsPageContent() {
   const [showDestructionForm, setShowDestructionForm] = useState(false);
   const [destructionSubmitting, setDestructionSubmitting] = useState(false);
   const [newDestruction, setNewDestruction] = useState({ distributor_id: "", product_id: "", cases_qty: "", reason: "broken" });
+  const [destructionAvailableStock, setDestructionAvailableStock] = useState<number | null>(null);
+  const [cancelDestructionModal, setCancelDestructionModal] = useState<{
+    order: OrderRow;
+    restore_to_distributor_id: string;
+    submitting: boolean;
+  } | null>(null);
 
   // ── Supply orders ──
   const [supplyOrders, setSupplyOrders] = useState<SupplyOrder[]>([]);
@@ -1381,9 +1387,78 @@ function OperationsPageContent() {
     loadOrders();
   };
 
+  const loadDestructionStock = async (distributor_id: string, product_id: string) => {
+    if (!distributor_id || !product_id) { setDestructionAvailableStock(null); return; }
+    const { data } = await supabase
+      .from("inventory_status")
+      .select("on_hand_qty")
+      .eq("product_id", product_id)
+      .eq("distributor_id", distributor_id)
+      .maybeSingle();
+    setDestructionAvailableStock(data?.on_hand_qty ?? 0);
+  };
+
+  const confirmCancelDestruction = async () => {
+    if (!cancelDestructionModal) return;
+    setCancelDestructionModal((p) => p ? { ...p, submitting: true } : p);
+    const { order, restore_to_distributor_id } = cancelDestructionModal;
+    const now = new Date().toISOString();
+
+    for (const item of order.items) {
+      const { data: existing } = await supabase
+        .from("inventory_status")
+        .select("on_hand_qty")
+        .eq("product_id", item.product_id)
+        .eq("distributor_id", restore_to_distributor_id)
+        .maybeSingle();
+      const newQty = (existing?.on_hand_qty ?? 0) + item.cases_qty;
+      if (existing) {
+        await supabase.from("inventory_status").update({
+          on_hand_qty: newQty,
+          status: "in_stock",
+          updated_at: now,
+        }).eq("product_id", item.product_id).eq("distributor_id", restore_to_distributor_id);
+      } else {
+        await supabase.from("inventory_status").insert({
+          product_id: item.product_id,
+          distributor_id: restore_to_distributor_id,
+          on_hand_qty: newQty,
+          status: "in_stock",
+        });
+      }
+      await supabase.from("inventory_movements").insert({
+        distributor_id: restore_to_distributor_id,
+        product_id: item.product_id,
+        movement_type: "order_cancel_reversal",
+        qty_delta: item.cases_qty,
+        order_request_id: order.id,
+      });
+    }
+
+    await supabase.from("order_requests")
+      .update({ status: "cancelled", cancelled_at: now })
+      .eq("id", order.id);
+
+    setCancelDestructionModal(null);
+    setOrdersLoaded(false);
+    loadOrders();
+  };
+
   const submitDestruction = async () => {
     const { distributor_id, product_id, cases_qty, reason } = newDestruction;
     if (!distributor_id || !product_id || !cases_qty) return;
+    // Re-validate stock before submitting
+    const { data: stockRow } = await supabase
+      .from("inventory_status")
+      .select("on_hand_qty")
+      .eq("product_id", product_id)
+      .eq("distributor_id", distributor_id)
+      .maybeSingle();
+    const available = stockRow?.on_hand_qty ?? 0;
+    if (available <= 0 || parseInt(cases_qty) > available) {
+      setDestructionAvailableStock(available);
+      return;
+    }
     setDestructionSubmitting(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setDestructionSubmitting(false); return; }
@@ -1443,6 +1518,7 @@ function OperationsPageContent() {
     setDestructionSubmitting(false);
     setShowDestructionForm(false);
     setNewDestruction({ distributor_id: "", product_id: "", cases_qty: "", reason: "broken" });
+    setDestructionAvailableStock(null);
     setOrdersLoaded(false);
     loadOrders();
   };
@@ -2430,7 +2506,12 @@ function OperationsPageContent() {
                   <p className="mc-label mb-1">Distributor *</p>
                   <select
                     value={newDestruction.distributor_id}
-                    onChange={(e) => setNewDestruction((p) => ({ ...p, distributor_id: e.target.value }))}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setNewDestruction((p) => ({ ...p, distributor_id: v }));
+                      setDestructionAvailableStock(null);
+                      if (v && newDestruction.product_id) loadDestructionStock(v, newDestruction.product_id);
+                    }}
                     className="mc-input mc-select w-full"
                   >
                     <option value="">Select distributor…</option>
@@ -2443,7 +2524,12 @@ function OperationsPageContent() {
                   <p className="mc-label mb-1">Product *</p>
                   <select
                     value={newDestruction.product_id}
-                    onChange={(e) => setNewDestruction((p) => ({ ...p, product_id: e.target.value }))}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setNewDestruction((p) => ({ ...p, product_id: v }));
+                      setDestructionAvailableStock(null);
+                      if (v && newDestruction.distributor_id) loadDestructionStock(newDestruction.distributor_id, v);
+                    }}
                     className="mc-input mc-select w-full"
                   >
                     <option value="">Select product…</option>
@@ -2457,11 +2543,26 @@ function OperationsPageContent() {
                   <input
                     type="number"
                     min={1}
+                    max={destructionAvailableStock ?? undefined}
                     value={newDestruction.cases_qty}
                     onChange={(e) => setNewDestruction((p) => ({ ...p, cases_qty: e.target.value }))}
                     className="mc-input w-full"
                     placeholder="Number of cases"
                   />
+                  {destructionAvailableStock !== null && (
+                    <p className="text-[10px] mt-1" style={{
+                      color: destructionAvailableStock === 0 ? "var(--mc-error)" : "var(--mc-text-muted)"
+                    }}>
+                      {destructionAvailableStock === 0
+                        ? "No stock available for this distributor"
+                        : `Available: ${destructionAvailableStock} case${destructionAvailableStock !== 1 ? "s" : ""}`}
+                    </p>
+                  )}
+                  {destructionAvailableStock !== null && newDestruction.cases_qty && parseInt(newDestruction.cases_qty) > destructionAvailableStock && (
+                    <p className="text-[10px] mt-1" style={{ color: "var(--mc-error)" }}>
+                      Cannot destroy more than available stock
+                    </p>
+                  )}
                 </div>
                 <div>
                   <p className="mc-label mb-1">Reason</p>
@@ -2479,7 +2580,14 @@ function OperationsPageContent() {
               <div className="flex gap-2">
                 <button
                   onClick={submitDestruction}
-                  disabled={destructionSubmitting || !newDestruction.distributor_id || !newDestruction.product_id || !newDestruction.cases_qty}
+                  disabled={
+                    destructionSubmitting ||
+                    !newDestruction.distributor_id ||
+                    !newDestruction.product_id ||
+                    !newDestruction.cases_qty ||
+                    destructionAvailableStock === 0 ||
+                    (destructionAvailableStock !== null && parseInt(newDestruction.cases_qty) > destructionAvailableStock)
+                  }
                   className="mc-btn mc-btn-primary"
                   style={{ background: "var(--mc-error)", borderColor: "var(--mc-error)" }}
                 >
@@ -2869,15 +2977,32 @@ function OperationsPageContent() {
                                   Deliver →
                                 </button>
                               )}
-                              <Link
-                                href={`/orders/${order.id}`}
-                                className="inline-flex items-center gap-1 text-[11px] transition-colors"
-                                style={{ color: "var(--mc-cream-subtle)" }}
-                                onMouseEnter={(e) => (e.currentTarget.style.color = "var(--mc-cream)")}
-                                onMouseLeave={(e) => (e.currentTarget.style.color = "var(--mc-cream-subtle)")}
-                              >
-                                View <ArrowRight className="w-3 h-3" />
-                              </Link>
+                              {order.notes?.startsWith("[DESTROYED]") && order.status !== "cancelled" && (
+                                <button
+                                  onClick={() => setCancelDestructionModal({
+                                    order,
+                                    restore_to_distributor_id: order.partner_id,
+                                    submitting: false,
+                                  })}
+                                  className="text-[11px] transition-colors"
+                                  style={{ color: "var(--mc-error)" }}
+                                  onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.7")}
+                                  onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
+                                >
+                                  Cancel
+                                </button>
+                              )}
+                              {!order.notes?.startsWith("[DESTROYED]") && (
+                                <Link
+                                  href={`/orders/${order.id}`}
+                                  className="inline-flex items-center gap-1 text-[11px] transition-colors"
+                                  style={{ color: "var(--mc-cream-subtle)" }}
+                                  onMouseEnter={(e) => (e.currentTarget.style.color = "var(--mc-cream)")}
+                                  onMouseLeave={(e) => (e.currentTarget.style.color = "var(--mc-cream-subtle)")}
+                                >
+                                  View <ArrowRight className="w-3 h-3" />
+                                </Link>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -3547,6 +3672,55 @@ function OperationsPageContent() {
             )}
             </div>
           )}
+        </div>
+      )}
+
+      {/* ─── Cancel Destruction Modal ────────────────────────────────────────── */}
+      {cancelDestructionModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.7)" }}
+          onClick={(e) => { if (e.target === e.currentTarget && !cancelDestructionModal.submitting) setCancelDestructionModal(null); }}
+        >
+          <div className="mc-card p-6 w-full max-w-sm">
+            <div className="flex items-start justify-between mb-4">
+              <h3 className="text-sm font-semibold" style={{ color: "var(--mc-text-primary)" }}>
+                Cancel Destruction
+              </h3>
+              <button onClick={() => setCancelDestructionModal(null)} disabled={cancelDestructionModal.submitting} style={{ color: "var(--mc-text-muted)" }}>
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-[11px] mb-4" style={{ color: "var(--mc-text-muted)" }}>
+              {cancelDestructionModal.order.items.map((i) => `${i.cases_qty} case${i.cases_qty !== 1 ? "s" : ""} of ${i.product_name}`).join(", ")} will be restored to:
+            </p>
+            <div className="mb-5">
+              <p className="mc-label mb-1">Restore stock to *</p>
+              <select
+                value={cancelDestructionModal.restore_to_distributor_id}
+                onChange={(e) => setCancelDestructionModal((p) => p ? { ...p, restore_to_distributor_id: e.target.value } : p)}
+                className="mc-input mc-select w-full"
+                disabled={cancelDestructionModal.submitting}
+              >
+                <option value="">Select distributor…</option>
+                {allOrderDistributors.filter((d) => !d.is_mecanova).map((d) => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={confirmCancelDestruction}
+                disabled={cancelDestructionModal.submitting || !cancelDestructionModal.restore_to_distributor_id}
+                className="mc-btn mc-btn-primary"
+              >
+                {cancelDestructionModal.submitting ? "Restoring…" : "Restore Stock"}
+              </button>
+              <button onClick={() => setCancelDestructionModal(null)} disabled={cancelDestructionModal.submitting} className="mc-btn mc-btn-ghost">
+                Keep
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
