@@ -67,7 +67,7 @@ type OrderRow = OrderRequest & {
   client_name: string | null;
   distributor_name: string | null;
   delivery_distributors: { name: string; cases: number }[];
-  items: { product_id: string; product_name: string; cases_qty: number }[];
+  items: { product_id: string; product_name: string; cases_qty: number; price_per_case: number | null }[];
 };
 
 interface FulfillmentModalState {
@@ -347,11 +347,11 @@ function OperationsPageContent() {
   const [allOrderProducts, setAllOrderProducts] = useState<{ id: string; name: string }[]>([]);
   const [newOrder, setNewOrder] = useState<{
     client_id: string;
-    items: { product_id: string; cases_qty: string }[];
+    items: { product_id: string; cases_qty: string; price_per_case: string }[];
     notes: string;
   }>({
     client_id: "",
-    items: [{ product_id: "", cases_qty: "" }],
+    items: [{ product_id: "", cases_qty: "", price_per_case: "" }],
     notes: "",
   });
   const [fulfillmentModal, setFulfillmentModal] = useState<FulfillmentModalState | null>(null);
@@ -810,7 +810,7 @@ function OperationsPageContent() {
     const orderIds = ordersData.map((o) => o.id);
     const { data: itemsRaw } = await supabase
       .from("order_request_items")
-      .select("order_request_id, product_id, cases_qty")
+      .select("order_request_id, product_id, cases_qty, price_per_case")
       .in("order_request_id", orderIds);
 
     // Fetch product names for items
@@ -821,13 +821,14 @@ function OperationsPageContent() {
     const itemProductMap = new Map((itemProducts || []).map((p) => [p.id, p.name]));
 
     // Group items by order_request_id
-    const itemsMap = new Map<string, { product_id: string; product_name: string; cases_qty: number }[]>();
+    const itemsMap = new Map<string, { product_id: string; product_name: string; cases_qty: number; price_per_case: number | null }[]>();
     (itemsRaw || []).forEach((item) => {
       const arr = itemsMap.get(item.order_request_id) || [];
       arr.push({
         product_id: item.product_id,
         product_name: itemProductMap.get(item.product_id) || "Unknown",
         cases_qty: item.cases_qty,
+        price_per_case: item.price_per_case ?? null,
       });
       itemsMap.set(item.order_request_id, arr);
     });
@@ -1358,6 +1359,7 @@ function OperationsPageContent() {
             order_request_id: orderRow.id,
             product_id: i.product_id,
             cases_qty: parseInt(i.cases_qty),
+            price_per_case: i.price_per_case ? parseFloat(i.price_per_case) : null,
           }))
         );
       }
@@ -1366,7 +1368,7 @@ function OperationsPageContent() {
     setShowNewOrderForm(false);
     setNewOrder({
       client_id: "",
-      items: [{ product_id: "", cases_qty: "" }],
+      items: [{ product_id: "", cases_qty: "", price_per_case: "" }],
       notes: "",
     });
     setOrdersLoaded(false);
@@ -2368,48 +2370,83 @@ function OperationsPageContent() {
               <div className="mb-3">
                 <p className="mc-label mb-2">Products *</p>
                 <div className="space-y-2">
-                  {newOrder.items.map((item, idx) => (
-                    <div key={idx} className="flex gap-2 items-center">
-                      <select
-                        value={item.product_id}
-                        onChange={(e) => setNewOrder((p) => {
-                          const items = [...p.items];
-                          items[idx] = { ...items[idx], product_id: e.target.value };
-                          return { ...p, items };
-                        })}
-                        className="mc-input mc-select flex-1"
-                      >
-                        <option value="">Select product…</option>
-                        {allOrderProducts.map((pr) => (
-                          <option key={pr.id} value={pr.id}>{pr.name}</option>
-                        ))}
-                      </select>
-                      <input
-                        type="number"
-                        min={1}
-                        value={item.cases_qty}
-                        onChange={(e) => setNewOrder((p) => {
-                          const items = [...p.items];
-                          items[idx] = { ...items[idx], cases_qty: e.target.value };
-                          return { ...p, items };
-                        })}
-                        className="mc-input w-24"
-                        placeholder="Cases"
-                      />
-                      {newOrder.items.length > 1 && (
-                        <button
-                          onClick={() => setNewOrder((p) => ({ ...p, items: p.items.filter((_, i) => i !== idx) }))}
-                          className="mc-btn mc-btn-ghost"
-                          style={{ padding: "6px" }}
+                  {newOrder.items.map((item, idx) => {
+                    const lineVolume =
+                      item.cases_qty && item.price_per_case
+                        ? parseFloat(item.cases_qty) * parseFloat(item.price_per_case)
+                        : null;
+                    return (
+                      <div key={idx} className="flex gap-2 items-center flex-wrap">
+                        <select
+                          value={item.product_id}
+                          onChange={(e) => setNewOrder((p) => {
+                            const items = [...p.items];
+                            items[idx] = { ...items[idx], product_id: e.target.value };
+                            return { ...p, items };
+                          })}
+                          className="mc-input mc-select flex-1 min-w-[140px]"
                         >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
+                          <option value="">Select product…</option>
+                          {allOrderProducts.map((pr) => (
+                            <option key={pr.id} value={pr.id}>{pr.name}</option>
+                          ))}
+                        </select>
+                        <input
+                          type="number"
+                          min={1}
+                          value={item.cases_qty}
+                          onChange={(e) => setNewOrder((p) => {
+                            const items = [...p.items];
+                            items[idx] = { ...items[idx], cases_qty: e.target.value };
+                            return { ...p, items };
+                          })}
+                          className="mc-input w-20"
+                          placeholder="Cases"
+                        />
+                        <input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          value={item.price_per_case}
+                          onChange={(e) => setNewOrder((p) => {
+                            const items = [...p.items];
+                            items[idx] = { ...items[idx], price_per_case: e.target.value };
+                            return { ...p, items };
+                          })}
+                          className="mc-input w-28"
+                          placeholder="€/case"
+                        />
+                        {lineVolume !== null && (
+                          <span className="text-[11px] font-medium whitespace-nowrap" style={{ color: "var(--mc-cream)" }}>
+                            = €{lineVolume.toFixed(2)}
+                          </span>
+                        )}
+                        {newOrder.items.length > 1 && (
+                          <button
+                            onClick={() => setNewOrder((p) => ({ ...p, items: p.items.filter((_, i) => i !== idx) }))}
+                            className="mc-btn mc-btn-ghost"
+                            style={{ padding: "6px" }}
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
+                {(() => {
+                  const total = newOrder.items.reduce((sum, i) => {
+                    const v = i.cases_qty && i.price_per_case ? parseFloat(i.cases_qty) * parseFloat(i.price_per_case) : 0;
+                    return sum + v;
+                  }, 0);
+                  return total > 0 ? (
+                    <div className="mt-3 px-3 py-2 text-xs font-semibold" style={{ background: "var(--mc-surface-elevated)", border: "1px solid var(--mc-border)", color: "var(--mc-cream)" }}>
+                      Order Volume: €{total.toFixed(2)}
+                    </div>
+                  ) : null;
+                })()}
                 <button
-                  onClick={() => setNewOrder((p) => ({ ...p, items: [...p.items, { product_id: "", cases_qty: "" }] }))}
+                  onClick={() => setNewOrder((p) => ({ ...p, items: [...p.items, { product_id: "", cases_qty: "", price_per_case: "" }] }))}
                   className="mt-2 text-[11px] transition-colors"
                   style={{ color: "var(--mc-cream-subtle)" }}
                   onMouseEnter={(e) => (e.currentTarget.style.color = "var(--mc-cream)")}
@@ -2497,6 +2534,8 @@ function OperationsPageContent() {
                         <th>Order ID</th>
                         <th>Partner</th>
                         <th>Items</th>
+                        <th>Price/Case</th>
+                        <th>Order Volume</th>
                         <th>Distributor</th>
                         <th>Status</th>
                         <th>Date</th>
@@ -2559,6 +2598,25 @@ function OperationsPageContent() {
                                   </>
                               }
                             </span>
+                          </td>
+                          <td>
+                            <span className="text-xs" style={{ color: "var(--mc-text-secondary)" }}>
+                              {order.items.length === 1 && order.items[0].price_per_case != null
+                                ? `€${order.items[0].price_per_case.toFixed(2)}`
+                                : order.items.length > 1 && order.items.every((i) => i.price_per_case != null)
+                                ? "Mixed"
+                                : "—"}
+                            </span>
+                          </td>
+                          <td>
+                            {(() => {
+                              const vol = order.items.reduce((sum, i) => {
+                                return i.price_per_case != null ? sum + i.cases_qty * i.price_per_case : sum;
+                              }, 0);
+                              return vol > 0
+                                ? <span className="text-xs font-medium" style={{ color: "var(--mc-cream)" }}>€{vol.toFixed(2)}</span>
+                                : <span className="text-xs" style={{ color: "var(--mc-text-muted)" }}>—</span>;
+                            })()}
                           </td>
                           <td>
                             <span

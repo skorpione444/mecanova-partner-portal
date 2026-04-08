@@ -350,6 +350,7 @@ export type Database = {
           created_at: string
           id: string
           order_request_id: string
+          price_per_case: number | null
           product_id: string
         }
         Insert: {
@@ -357,6 +358,7 @@ export type Database = {
           created_at?: string
           id?: string
           order_request_id: string
+          price_per_case?: number | null
           product_id: string
         }
         Update: {
@@ -364,6 +366,7 @@ export type Database = {
           created_at?: string
           id?: string
           order_request_id?: string
+          price_per_case?: number | null
           product_id?: string
         }
         Relationships: []
