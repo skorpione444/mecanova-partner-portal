@@ -7,7 +7,7 @@ import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 import AddressAutocomplete from "@/components/crm/AddressAutocomplete";
 import { VENUE_TYPES, VENUE_TYPE_LABELS, CAPACITY_STATUSES, CAPACITY_STATUS_LABELS } from "@mecanova/shared";
-import type { CapacityStatus } from "@mecanova/shared";
+import type { CapacityStatus, VenueType } from "@mecanova/shared";
 import { UserPlus, ArrowLeft } from "lucide-react";
 
 export default function NewPartnerPage() {
@@ -44,7 +44,7 @@ export default function NewPartnerPage() {
 
     const venueType =
       topType === "buyer" && buyerSubType !== "distributor"
-        ? buyerSubType
+        ? buyerSubType as VenueType
         : null;
 
     const countriesArray = serviceCountries
