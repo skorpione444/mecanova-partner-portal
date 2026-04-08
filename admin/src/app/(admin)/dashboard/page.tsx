@@ -129,7 +129,7 @@ export default function DashboardPage() {
         supabase
           .from("inventory_status")
           .select("product_id", { count: "exact", head: true })
-          .in("status", ["limited", "out"]),
+          .in("status", ["out"]),
         supabase
           .from("order_requests")
           .select("*")
