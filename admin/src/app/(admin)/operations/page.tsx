@@ -1441,6 +1441,7 @@ function OperationsPageContent() {
 
     setCancelDestructionModal(null);
     setOrdersLoaded(false);
+    setStockLoaded(false);
     loadOrders();
   };
 
@@ -1520,6 +1521,7 @@ function OperationsPageContent() {
     setNewDestruction({ distributor_id: "", product_id: "", cases_qty: "", reason: "broken" });
     setDestructionAvailableStock(null);
     setOrdersLoaded(false);
+    setStockLoaded(false);
     loadOrders();
   };
 
