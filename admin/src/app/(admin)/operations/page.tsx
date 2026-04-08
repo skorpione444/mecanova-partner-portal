@@ -8,7 +8,7 @@ import PageHeader from "@/components/PageHeader";
 import EmptyState from "@/components/EmptyState";
 import StatusBadge from "@/components/StatusBadge";
 import type { OrderRequest, InventoryStatus } from "@mecanova/shared";
-import { ACTIVE_ORDER_STATUSES } from "@mecanova/shared";
+import { ACTIVE_ORDER_STATUSES, INVENTORY_ADJUSTMENT_LABELS } from "@mecanova/shared";
 import {
   Layers,
   Factory,
@@ -357,6 +357,9 @@ function OperationsPageContent() {
     isSample: false,
   });
   const [fulfillmentModal, setFulfillmentModal] = useState<FulfillmentModalState | null>(null);
+  const [showDestructionForm, setShowDestructionForm] = useState(false);
+  const [destructionSubmitting, setDestructionSubmitting] = useState(false);
+  const [newDestruction, setNewDestruction] = useState({ distributor_id: "", product_id: "", cases_qty: "", reason: "broken" });
 
   // ── Supply orders ──
   const [supplyOrders, setSupplyOrders] = useState<SupplyOrder[]>([]);
@@ -1378,6 +1381,72 @@ function OperationsPageContent() {
     loadOrders();
   };
 
+  const submitDestruction = async () => {
+    const { distributor_id, product_id, cases_qty, reason } = newDestruction;
+    if (!distributor_id || !product_id || !cases_qty) return;
+    setDestructionSubmitting(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setDestructionSubmitting(false); return; }
+    const now = new Date().toISOString();
+    const cases = parseInt(cases_qty);
+
+    // Create order record (status = delivered immediately, partner = distributor)
+    const { data: orderRow } = await supabase
+      .from("order_requests")
+      .insert({
+        partner_id: distributor_id,
+        distributor_id,
+        client_id: null,
+        status: "delivered",
+        submitted_at: now,
+        delivered_at: now,
+        notes: `[DESTROYED] ${reason}`,
+        created_by_user: user.id,
+      })
+      .select()
+      .single();
+
+    if (orderRow) {
+      await supabase.from("order_request_items").insert({
+        order_request_id: orderRow.id,
+        product_id,
+        cases_qty: cases,
+        price_per_case: null,
+      });
+
+      // Deduct from distributor stock
+      const { data: existing } = await supabase
+        .from("inventory_status")
+        .select("on_hand_qty")
+        .eq("product_id", product_id)
+        .eq("distributor_id", distributor_id)
+        .maybeSingle();
+
+      const newQty = Math.max(0, (existing?.on_hand_qty ?? 0) - cases);
+      if (existing) {
+        await supabase.from("inventory_status").update({
+          on_hand_qty: newQty,
+          status: newQty <= 0 ? "out" : "in_stock",
+          updated_at: now,
+        }).eq("product_id", product_id).eq("distributor_id", distributor_id);
+      }
+
+      await supabase.from("inventory_movements").insert({
+        distributor_id,
+        product_id,
+        movement_type: "destroyed",
+        qty_delta: -cases,
+        order_request_id: orderRow.id,
+      });
+    }
+
+    setDestructionSubmitting(false);
+    setShowDestructionForm(false);
+    setNewDestruction({ distributor_id: "", product_id: "", cases_qty: "", reason: "broken" });
+    setOrdersLoaded(false);
+    loadOrders();
+  };
+
   const markArrived = async (so: SupplyOrder) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase as any)
@@ -2333,17 +2402,93 @@ function OperationsPageContent() {
             <p className="text-xs" style={{ color: "var(--mc-text-muted)" }}>
               {orders.length} total order{orders.length !== 1 ? "s" : ""}
             </p>
-            <button
-              onClick={() => setShowNewOrderForm(!showNewOrderForm)}
-              className="mc-btn mc-btn-primary"
-            >
-              {showNewOrderForm ? (
-                <><X className="w-3.5 h-3.5" />Cancel</>
-              ) : (
-                <><Plus className="w-3.5 h-3.5" />New Order</>
-              )}
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => { setShowDestructionForm(!showDestructionForm); setShowNewOrderForm(false); }}
+                className="mc-btn mc-btn-ghost"
+                style={{ color: showDestructionForm ? "var(--mc-error)" : undefined, borderColor: showDestructionForm ? "var(--mc-error-light)" : undefined }}
+              >
+                {showDestructionForm ? <><X className="w-3.5 h-3.5" />Cancel</> : <>⚠ Log Destruction</>}
+              </button>
+              <button
+                onClick={() => { setShowNewOrderForm(!showNewOrderForm); setShowDestructionForm(false); }}
+                className="mc-btn mc-btn-primary"
+              >
+                {showNewOrderForm ? <><X className="w-3.5 h-3.5" />Cancel</> : <><Plus className="w-3.5 h-3.5" />New Order</>}
+              </button>
+            </div>
           </div>
+
+          {/* Destruction form */}
+          {showDestructionForm && (
+            <div className="mc-card p-5 mb-5" style={{ border: "1px solid var(--mc-error-light)" }}>
+              <h3 className="text-xs font-semibold tracking-[0.08em] uppercase mb-4" style={{ color: "var(--mc-error)" }}>
+                Log Destroyed Bottles
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                <div>
+                  <p className="mc-label mb-1">Distributor *</p>
+                  <select
+                    value={newDestruction.distributor_id}
+                    onChange={(e) => setNewDestruction((p) => ({ ...p, distributor_id: e.target.value }))}
+                    className="mc-input mc-select w-full"
+                  >
+                    <option value="">Select distributor…</option>
+                    {allOrderDistributors.filter((d) => !d.is_mecanova).map((d) => (
+                      <option key={d.id} value={d.id}>{d.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <p className="mc-label mb-1">Product *</p>
+                  <select
+                    value={newDestruction.product_id}
+                    onChange={(e) => setNewDestruction((p) => ({ ...p, product_id: e.target.value }))}
+                    className="mc-input mc-select w-full"
+                  >
+                    <option value="">Select product…</option>
+                    {allOrderProducts.map((pr) => (
+                      <option key={pr.id} value={pr.id}>{pr.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <p className="mc-label mb-1">Cases *</p>
+                  <input
+                    type="number"
+                    min={1}
+                    value={newDestruction.cases_qty}
+                    onChange={(e) => setNewDestruction((p) => ({ ...p, cases_qty: e.target.value }))}
+                    className="mc-input w-full"
+                    placeholder="Number of cases"
+                  />
+                </div>
+                <div>
+                  <p className="mc-label mb-1">Reason</p>
+                  <select
+                    value={newDestruction.reason}
+                    onChange={(e) => setNewDestruction((p) => ({ ...p, reason: e.target.value }))}
+                    className="mc-input mc-select w-full"
+                  >
+                    {(["broken", "damaged", "lost", "other"] as const).map((r) => (
+                      <option key={r} value={r}>{INVENTORY_ADJUSTMENT_LABELS[r]}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={submitDestruction}
+                  disabled={destructionSubmitting || !newDestruction.distributor_id || !newDestruction.product_id || !newDestruction.cases_qty}
+                  className="mc-btn mc-btn-primary"
+                  style={{ background: "var(--mc-error)", borderColor: "var(--mc-error)" }}
+                >
+                  {destructionSubmitting ? "Saving…" : "Confirm Destruction"}
+                </button>
+                <button onClick={() => setShowDestructionForm(false)} className="mc-btn mc-btn-ghost">Cancel</button>
+              </div>
+            </div>
+          )}
 
           {/* New order form */}
           {showNewOrderForm && (
@@ -2569,6 +2714,21 @@ function OperationsPageContent() {
                               >
                                 {order.id.slice(0, 8)}
                               </span>
+                              {order.notes?.startsWith("[DESTROYED]") && (
+                                <span
+                                  className="text-[10px] font-semibold tracking-wide"
+                                  style={{
+                                    color: "var(--mc-error)",
+                                    background: "var(--mc-error-bg)",
+                                    border: "1px solid var(--mc-error-light)",
+                                    padding: "0 4px",
+                                    display: "inline-block",
+                                    width: "fit-content",
+                                  }}
+                                >
+                                  DESTROYED
+                                </span>
+                              )}
                               {order.notes?.startsWith("[SAMPLE]") && (
                                 <span
                                   className="text-[10px] font-semibold tracking-wide"
@@ -2605,7 +2765,11 @@ function OperationsPageContent() {
                             </div>
                           </td>
                           <td>
-                            <span className="text-xs">{order.partner_name}</span>
+                            {order.notes?.startsWith("[DESTROYED]") ? (
+                              <span className="text-xs font-semibold" style={{ color: "var(--mc-error)" }}>Destroyed</span>
+                            ) : (
+                              <span className="text-xs">{order.partner_name}</span>
+                            )}
                           </td>
                           <td>
                             <span
@@ -2672,7 +2836,7 @@ function OperationsPageContent() {
                           </td>
                           <td>
                             <div className="flex items-center gap-3 flex-wrap">
-                              {order.status === "submitted" && (
+                              {!order.notes?.startsWith("[DESTROYED]") && order.status === "submitted" && (
                                 <>
                                   <button
                                     onClick={() => openFulfillmentModal(order, "accept")}
@@ -2694,7 +2858,7 @@ function OperationsPageContent() {
                                   </button>
                                 </>
                               )}
-                              {order.status === "accepted" && (
+                              {!order.notes?.startsWith("[DESTROYED]") && order.status === "accepted" && (
                                 <button
                                   onClick={() => openFulfillmentModal(order, "deliver")}
                                   className="text-[11px] font-medium transition-colors"
