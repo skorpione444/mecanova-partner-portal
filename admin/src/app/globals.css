@@ -133,7 +133,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .mc-animate-page {
-  animation: fadeInUp 0.4s var(--mc-ease) both;
+  animation: fadeIn 0.4s var(--mc-ease) both;
 }
 
 .mc-animate-fade {

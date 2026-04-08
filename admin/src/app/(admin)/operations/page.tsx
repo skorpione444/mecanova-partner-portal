@@ -349,10 +349,12 @@ function OperationsPageContent() {
     client_id: string;
     items: { product_id: string; cases_qty: string; price_per_case: string }[];
     notes: string;
+    isSample: boolean;
   }>({
     client_id: "",
     items: [{ product_id: "", cases_qty: "", price_per_case: "" }],
     notes: "",
+    isSample: false,
   });
   const [fulfillmentModal, setFulfillmentModal] = useState<FulfillmentModalState | null>(null);
 
@@ -1346,7 +1348,7 @@ function OperationsPageContent() {
         distributor_id: null,
         status: "submitted",
         submitted_at: now,
-        notes: newOrder.notes || null,
+        notes: newOrder.isSample ? `[SAMPLE] ${newOrder.notes}`.trim() : newOrder.notes || null,
         created_by_user: user.id,
       })
       .select()
@@ -1370,6 +1372,7 @@ function OperationsPageContent() {
       client_id: "",
       items: [{ product_id: "", cases_qty: "", price_per_case: "" }],
       notes: "",
+      isSample: false,
     });
     setOrdersLoaded(false);
     loadOrders();
@@ -2465,6 +2468,19 @@ function OperationsPageContent() {
                   placeholder="Optional notes…"
                 />
               </div>
+              <div className="mb-4">
+                <label className="flex items-center gap-2.5 cursor-pointer w-fit">
+                  <input
+                    type="checkbox"
+                    checked={newOrder.isSample}
+                    onChange={(e) => setNewOrder((p) => ({ ...p, isSample: e.target.checked }))}
+                    className="w-3.5 h-3.5 accent-amber-400"
+                  />
+                  <span className="text-[11px] font-medium tracking-wide" style={{ color: "var(--mc-warning)" }}>
+                    Mark as sample bottle
+                  </span>
+                </label>
+              </div>
               <div className="flex gap-2">
                 <button
                   onClick={submitNewOrder}
@@ -2553,7 +2569,22 @@ function OperationsPageContent() {
                               >
                                 {order.id.slice(0, 8)}
                               </span>
-                              {order.notes && (() => {
+                              {order.notes?.startsWith("[SAMPLE]") && (
+                                <span
+                                  className="text-[10px] font-semibold tracking-wide"
+                                  style={{
+                                    color: "var(--mc-warning)",
+                                    background: "var(--mc-warning-bg)",
+                                    border: "1px solid var(--mc-warning-light)",
+                                    padding: "0 4px",
+                                    display: "inline-block",
+                                    width: "fit-content",
+                                  }}
+                                >
+                                  SAMPLE
+                                </span>
+                              )}
+                              {order.notes && !order.notes.startsWith("[SAMPLE]") && (() => {
                                 const groupMatch = order.notes.match(/\[group:([A-Z0-9]+)\]/);
                                 return groupMatch ? (
                                   <span
