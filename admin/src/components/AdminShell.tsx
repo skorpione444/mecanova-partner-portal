@@ -21,7 +21,10 @@ import {
   Menu,
   X,
   ChevronRight,
+  Calculator,
+  CheckSquare,
 } from "lucide-react";
+import { ToastProvider } from "@/components/ui/Toast";
 
 interface AdminShellProps {
   children: React.ReactNode;
@@ -41,6 +44,7 @@ const NAV_SECTIONS = [
       { href: "/partners", label: "Partners", icon: Users },
       { href: "/products", label: "Products", icon: Package },
       { href: "/operations", label: "Operations", icon: Layers },
+      { href: "/todos", label: "To Do's", icon: CheckSquare },
       { href: "/documents", label: "Documents", icon: FileText },
     ],
   },
@@ -49,6 +53,7 @@ const NAV_SECTIONS = [
     items: [
       { href: "/logistics", label: "Logistics", icon: Truck },
       { href: "/finance", label: "Finance", icon: DollarSign },
+      { href: "/pricing", label: "Pricing", icon: Calculator },
       { href: "/crm", label: "CRM", icon: Contact },
       { href: "/contracts", label: "Contracts", icon: Scale },
       { href: "/research", label: "Research", icon: Search },
@@ -347,6 +352,7 @@ export default function AdminShell({ children }: AdminShellProps) {
           </div>
         </main>
       </div>
+      <ToastProvider />
     </div>
   );
 }

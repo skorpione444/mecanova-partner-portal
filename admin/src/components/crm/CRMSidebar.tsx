@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { X, Phone, Globe, MapPin, Building2, ArrowRight, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import type { Partner, Prospect, CRMInteraction, CRMStatus } from "@mecanova/shared";
+import type { Partner, Prospect, CRMInteraction, CRMStatus, PartnerType } from "@mecanova/shared";
 import type { GooglePlaceResult } from "./MapView";
 import StatusPill from "./StatusPill";
 import InteractionLog from "./InteractionLog";
@@ -21,7 +21,7 @@ interface CRMSidebarProps {
   onProspectUpdated: (updated: Prospect) => void;
   onPartnerUpdated: (updated: Partner) => void;
   onPartnerDeleted: (id: string) => void;
-  onAddProspect: (place: GooglePlaceResult) => Promise<void>;
+  onAddProspect: (place: GooglePlaceResult, prospectType: PartnerType) => Promise<void>;
   onConvertClick: (prospect: Prospect) => void;
 }
 
@@ -47,8 +47,22 @@ export default function CRMSidebar({
   const [loadingInteractions, setLoadingInteractions] = useState(false);
   const [savingStatus, setSavingStatus] = useState(false);
   const [addingProspect, setAddingProspect] = useState(false);
+  const [notesValue, setNotesValue] = useState("");
+  const [savingNotes, setSavingNotes] = useState(false);
+  const [prospectType, setProspectType] = useState<PartnerType>("client");
+  const [savingProspectType, setSavingProspectType] = useState(false);
 
   const supabase = createClient();
+
+  // Sync notes + prospect type when entity changes
+  useEffect(() => {
+    if (!entity || entity.type === "place") return;
+    setNotesValue(entity.data.notes ?? "");
+    if (entity.type === "prospect") {
+      setProspectType(entity.data.prospect_type ?? "client");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entity?.type === "place" ? null : entity?.data?.id]);
 
   const fetchInteractions = useCallback(async () => {
     if (!entity || entity.type === "place") return;
@@ -138,8 +152,44 @@ export default function CRMSidebar({
   const handleAddProspect = async () => {
     if (!entity || entity.type !== "place") return;
     setAddingProspect(true);
-    await onAddProspect(entity.data);
+    await onAddProspect(entity.data, prospectType);
     setAddingProspect(false);
+  };
+
+  const handleSaveProspectType = async (newType: PartnerType) => {
+    if (!entity || entity.type !== "prospect") return;
+    if (newType === entity.data.prospect_type) return;
+    setSavingProspectType(true);
+    const { data, error } = await supabase
+      .from("prospects")
+      .update({ prospect_type: newType })
+      .eq("id", entity.data.id)
+      .select()
+      .single();
+    if (!error && data) {
+      setProspectType(newType);
+      onProspectUpdated(data as Prospect);
+    }
+    setSavingProspectType(false);
+  };
+
+  const handleSaveNotes = async () => {
+    if (!entity || entity.type === "place") return;
+    const currentNotes = entity.data.notes ?? "";
+    if (notesValue === currentNotes) return;
+    setSavingNotes(true);
+    const table = entity.type === "prospect" ? "prospects" : "partners";
+    const { data, error } = await supabase
+      .from(table)
+      .update({ notes: notesValue.trim() || null })
+      .eq("id", entity.data.id)
+      .select()
+      .single();
+    if (!error && data) {
+      if (entity.type === "prospect") onProspectUpdated(data as Prospect);
+      else onPartnerUpdated(data as Partner);
+    }
+    setSavingNotes(false);
   };
 
   if (!entity) return null;
@@ -240,105 +290,113 @@ export default function CRMSidebar({
 
       {/* Scrollable body */}
       <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px" }}>
-        {/* Details */}
-        <div
-          style={{
+        {/* Unified info rows: Phone / Address / Website — always shown */}
+        {(() => {
+          const phone =
+            entity.type === "partner"
+              ? entity.data.contact_phone
+              : entity.type === "prospect"
+              ? (entity.data as Prospect).contact_phone
+              : (entity.data as GooglePlaceResult).phone;
+
+          const address =
+            entity.type === "partner"
+              ? entity.data.address
+              : entity.type === "prospect"
+              ? (entity.data as Prospect).address
+              : (entity.data as GooglePlaceResult).address;
+
+          const website =
+            entity.type === "partner"
+              ? entity.data.website
+              : entity.type === "prospect"
+              ? (entity.data as Prospect).website
+              : (entity.data as GooglePlaceResult).website;
+
+          const contactPerson =
+            entity.type === "partner"
+              ? entity.data.contact_person
+              : entity.type === "prospect"
+              ? (entity.data as Prospect).contact_person
+              : null;
+
+          const labelStyle: React.CSSProperties = {
+            fontSize: "0.6875rem",
+            fontWeight: 600,
+            color: "var(--mc-text-muted)",
+            textTransform: "uppercase",
+            letterSpacing: "0.08em",
+            minWidth: 60,
+            flexShrink: 0,
+          };
+          const valueStyle: React.CSSProperties = {
+            fontSize: "0.8125rem",
+            color: "var(--mc-text-secondary)",
+          };
+          const mutedStyle: React.CSSProperties = {
+            fontSize: "0.8125rem",
+            color: "var(--mc-text-muted)",
+          };
+          const rowStyle: React.CSSProperties = {
             display: "flex",
-            flexDirection: "column",
-            gap: 8,
-            marginBottom: 20,
-          }}
-        >
-          {(entity.type === "prospect" || entity.type === "place") &&
-            (() => {
-              const d = entity.data;
-              const address =
-                entity.type === "prospect" ? d.address : d.address;
-              const phone =
-                entity.type === "prospect"
-                  ? (d as Prospect).contact_phone
-                  : (d as GooglePlaceResult).phone;
-              const website =
-                entity.type === "place"
-                  ? (d as GooglePlaceResult).website
-                  : null;
+            gap: 10,
+            alignItems: "flex-start",
+          };
 
-              return (
-                <>
-                  {address && (
-                    <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-                      <MapPin
-                        style={{ width: 13, height: 13, color: "var(--mc-text-muted)", marginTop: 1, flexShrink: 0 }}
-                        strokeWidth={1.5}
-                      />
-                      <span style={{ fontSize: "0.8125rem", color: "var(--mc-text-secondary)" }}>
-                        {address}
-                      </span>
-                    </div>
-                  )}
-                  {phone && (
-                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                      <Phone style={{ width: 13, height: 13, color: "var(--mc-text-muted)", flexShrink: 0 }} strokeWidth={1.5} />
-                      <a
-                        href={`tel:${phone}`}
-                        style={{ fontSize: "0.8125rem", color: "var(--mc-info)", textDecoration: "none" }}
-                      >
-                        {phone}
-                      </a>
-                    </div>
-                  )}
-                  {website && (
-                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                      <Globe style={{ width: 13, height: 13, color: "var(--mc-text-muted)", flexShrink: 0 }} strokeWidth={1.5} />
-                      <a
-                        href={website}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ fontSize: "0.8125rem", color: "var(--mc-info)", textDecoration: "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-                      >
-                        {website.replace(/^https?:\/\//, "")}
-                      </a>
-                    </div>
-                  )}
-                  {entity.type === "prospect" && (entity.data as Prospect).contact_person && (
-                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                      <Building2 style={{ width: 13, height: 13, color: "var(--mc-text-muted)", flexShrink: 0 }} strokeWidth={1.5} />
-                      <span style={{ fontSize: "0.8125rem", color: "var(--mc-text-secondary)" }}>
-                        {(entity.data as Prospect).contact_person}
-                      </span>
-                    </div>
-                  )}
-                </>
-              );
-            })()}
-
-          {entity.type === "partner" && (
-            <>
-              {entity.data.contact_person && (
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <Building2 style={{ width: 13, height: 13, color: "var(--mc-text-muted)", flexShrink: 0 }} strokeWidth={1.5} />
-                  <span style={{ fontSize: "0.8125rem", color: "var(--mc-text-secondary)" }}>
-                    {entity.data.contact_person}
-                  </span>
-                </div>
-              )}
-              {entity.data.contact_phone && (
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <Phone style={{ width: 13, height: 13, color: "var(--mc-text-muted)", flexShrink: 0 }} strokeWidth={1.5} />
-                  <a
-                    href={`tel:${entity.data.contact_phone}`}
-                    style={{ fontSize: "0.8125rem", color: "var(--mc-info)", textDecoration: "none" }}
-                  >
-                    {entity.data.contact_phone}
+          return (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
+              <div style={rowStyle}>
+                <Phone style={{ width: 13, height: 13, color: "var(--mc-text-muted)", marginTop: 2, flexShrink: 0 }} strokeWidth={1.5} />
+                <span style={labelStyle}>Phone</span>
+                {phone ? (
+                  <a href={`tel:${phone}`} style={{ ...valueStyle, color: "var(--mc-info)", textDecoration: "none" }}>
+                    {phone}
                   </a>
+                ) : (
+                  <span style={mutedStyle}>—</span>
+                )}
+              </div>
+
+              <div style={rowStyle}>
+                <MapPin style={{ width: 13, height: 13, color: "var(--mc-text-muted)", marginTop: 2, flexShrink: 0 }} strokeWidth={1.5} />
+                <span style={labelStyle}>Address</span>
+                {address ? (
+                  <span style={valueStyle}>{address}</span>
+                ) : (
+                  <span style={mutedStyle}>—</span>
+                )}
+              </div>
+
+              <div style={rowStyle}>
+                <Globe style={{ width: 13, height: 13, color: "var(--mc-text-muted)", marginTop: 2, flexShrink: 0 }} strokeWidth={1.5} />
+                <span style={labelStyle}>Website</span>
+                {website ? (
+                  <a
+                    href={website}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ ...valueStyle, color: "var(--mc-info)", textDecoration: "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                  >
+                    {website.replace(/^https?:\/\//, "")}
+                  </a>
+                ) : (
+                  <span style={mutedStyle}>—</span>
+                )}
+              </div>
+
+              {contactPerson && (
+                <div style={rowStyle}>
+                  <Building2 style={{ width: 13, height: 13, color: "var(--mc-text-muted)", marginTop: 2, flexShrink: 0 }} strokeWidth={1.5} />
+                  <span style={labelStyle}>Contact</span>
+                  <span style={valueStyle}>{contactPerson}</span>
                 </div>
               )}
-            </>
-          )}
-        </div>
+            </div>
+          );
+        })()}
 
-        {/* Notes (prospects only) */}
-        {entity.type === "prospect" && entity.data.notes && (
+        {/* Notes — always visible, inline editable (prospects and partners) */}
+        {(entity.type === "prospect" || entity.type === "partner") && (
           <div
             style={{
               padding: "10px 12px",
@@ -347,41 +405,125 @@ export default function CRMSidebar({
               marginBottom: 20,
             }}
           >
-            <p
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+              <p
+                style={{
+                  fontSize: "0.6875rem",
+                  fontWeight: 600,
+                  color: "var(--mc-text-muted)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
+                  margin: 0,
+                }}
+              >
+                Notes
+              </p>
+              {savingNotes && (
+                <Loader2 style={{ width: 10, height: 10, color: "var(--mc-text-muted)" }} className="animate-spin" />
+              )}
+            </div>
+            <textarea
+              value={notesValue}
+              onChange={(e) => setNotesValue(e.target.value)}
+              onBlur={handleSaveNotes}
+              rows={3}
+              placeholder="Add notes..."
               style={{
-                fontSize: "0.6875rem",
-                fontWeight: 600,
-                color: "var(--mc-text-muted)",
-                textTransform: "uppercase",
-                letterSpacing: "0.08em",
-                marginBottom: 4,
+                width: "100%",
+                background: "transparent",
+                border: "none",
+                outline: "none",
+                resize: "vertical",
+                fontSize: "0.8125rem",
+                color: "var(--mc-text-secondary)",
+                lineHeight: 1.5,
+                fontFamily: "inherit",
+                padding: 0,
               }}
-            >
-              Notes
-            </p>
-            <p style={{ fontSize: "0.8125rem", color: "var(--mc-text-secondary)", lineHeight: 1.5 }}>
-              {entity.data.notes}
-            </p>
+            />
           </div>
         )}
 
-        {/* Google Place — Add as Prospect */}
+        {/* Google Place — Type selector + Add as Prospect */}
         {entity.type === "place" && (
-          <button
-            onClick={handleAddProspect}
-            disabled={addingProspect}
-            className="mc-btn mc-btn-primary"
-            style={{ width: "100%", marginBottom: 16 }}
-          >
-            {addingProspect ? (
-              <Loader2 style={{ width: 14, height: 14 }} className="animate-spin" />
-            ) : (
-              <>
-                Add as Prospect
-                <ArrowRight style={{ width: 14, height: 14 }} strokeWidth={1.5} />
-              </>
-            )}
-          </button>
+          <div style={{ marginBottom: 16 }}>
+            <p className="mc-label" style={{ marginBottom: 6 }}>Type</p>
+            <div style={{ display: "flex", gap: 4, marginBottom: 10 }}>
+              {(["distributor", "client", "supplier"] as PartnerType[]).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => setProspectType(t)}
+                  style={{
+                    flex: 1,
+                    padding: "4px 6px",
+                    fontSize: "0.6875rem",
+                    fontWeight: prospectType === t ? 600 : 400,
+                    cursor: "pointer",
+                    border: "1px solid",
+                    borderColor: prospectType === t ? "var(--mc-cream)" : "var(--mc-border)",
+                    background: prospectType === t ? "rgba(236,223,204,0.08)" : "transparent",
+                    color: prospectType === t ? "var(--mc-cream)" : "var(--mc-text-muted)",
+                    transition: "all 0.15s ease",
+                    textTransform: "capitalize",
+                  }}
+                >
+                  {t === "client" ? "Buyer" : t.charAt(0).toUpperCase() + t.slice(1)}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={handleAddProspect}
+              disabled={addingProspect}
+              className="mc-btn mc-btn-primary"
+              style={{ width: "100%" }}
+            >
+              {addingProspect ? (
+                <Loader2 style={{ width: 14, height: 14 }} className="animate-spin" />
+              ) : (
+                <>
+                  Add as Prospect
+                  <ArrowRight style={{ width: 14, height: 14 }} strokeWidth={1.5} />
+                </>
+              )}
+            </button>
+          </div>
+        )}
+
+        {/* Prospect type changer (prospects only) */}
+        {entity.type === "prospect" && (
+          <div style={{ marginBottom: 20 }}>
+            <p className="mc-label" style={{ marginBottom: 8 }}>
+              Type
+              {savingProspectType && (
+                <Loader2 style={{ width: 10, height: 10, marginLeft: 6, display: "inline", verticalAlign: "middle", color: "var(--mc-text-muted)" }} className="animate-spin" />
+              )}
+            </p>
+            <div style={{ display: "flex", gap: 4 }}>
+              {(["distributor", "client", "supplier"] as PartnerType[]).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => handleSaveProspectType(t)}
+                  disabled={savingProspectType || t === prospectType}
+                  style={{
+                    flex: 1,
+                    padding: "4px 6px",
+                    fontSize: "0.6875rem",
+                    fontWeight: t === prospectType ? 600 : 400,
+                    cursor: t === prospectType ? "default" : "pointer",
+                    border: "1px solid",
+                    borderColor: t === prospectType ? "var(--mc-cream)" : "var(--mc-border)",
+                    background: t === prospectType ? "rgba(236,223,204,0.08)" : "transparent",
+                    color: t === prospectType ? "var(--mc-cream)" : "var(--mc-text-muted)",
+                    opacity: savingProspectType ? 0.5 : 1,
+                    transition: "all 0.15s ease",
+                    textTransform: "capitalize",
+                  }}
+                >
+                  {t === "client" ? "Buyer" : t.charAt(0).toUpperCase() + t.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
         )}
 
         {/* Status changer (prospect/partner) */}

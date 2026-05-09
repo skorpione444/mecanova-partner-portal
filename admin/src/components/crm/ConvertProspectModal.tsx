@@ -23,6 +23,7 @@ export default function ConvertProspectModal({
   const [contactPhone, setContactPhone] = useState(prospect.contact_phone ?? "");
   const [vatId, setVatId] = useState("");
   const [country, setCountry] = useState("Germany");
+  const [notes, setNotes] = useState(prospect.notes ?? "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,11 +45,14 @@ export default function ConvertProspectModal({
         vat_id: vatId.trim() || null,
         country: country.trim() || null,
         partner_type: partnerType,
+        address: prospect.address,
         lat: prospect.lat,
         lng: prospect.lng,
         venue_type: prospect.venue_type,
         crm_status: "customer",
         google_place_id: prospect.google_place_id,
+        notes: notes.trim() || null,
+        website: prospect.website,
       })
       .select("id")
       .single();
@@ -200,6 +204,18 @@ export default function ConvertProspectModal({
             <div>
               <label className="mc-label">Contact Phone</label>
               <input className="mc-input" placeholder="Optional" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} />
+            </div>
+
+            <div>
+              <label className="mc-label">Notes</label>
+              <textarea
+                className="mc-input"
+                rows={3}
+                placeholder="Internal notes or description..."
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                style={{ resize: "vertical" }}
+              />
             </div>
           </div>
 

@@ -22,13 +22,28 @@ const PARTNER_TYPES: { value: PartnerType | "all"; label: string }[] = [
   { value: "supplier", label: "Supplier" },
 ];
 
-const CRM_STATUSES: { value: CRMStatus | "all"; label: string }[] = [
+// All 5 statuses — for "all" and "prospects" sources
+const ALL_STATUSES: { value: CRMStatus | "all"; label: string }[] = [
   { value: "all", label: "All Statuses" },
   { value: "uncontacted", label: "Uncontacted" },
   { value: "contacted", label: "Contacted" },
   { value: "negotiating", label: "Negotiating" },
   { value: "customer", label: "Customer" },
   { value: "inactive", label: "Inactive" },
+];
+
+// Only the statuses partners can have
+const PARTNER_STATUSES: { value: CRMStatus | "all"; label: string }[] = [
+  { value: "all", label: "All Statuses" },
+  { value: "customer", label: "Customer" },
+  { value: "inactive", label: "Inactive" },
+];
+
+// Statuses that only apply to prospects
+const PROSPECT_ONLY_STATUSES: Array<CRMStatus | "all"> = [
+  "uncontacted",
+  "contacted",
+  "negotiating",
 ];
 
 const SOURCES: { value: CRMFilterState["source"]; label: string }[] = [
@@ -68,12 +83,37 @@ function FilterChip({
   );
 }
 
+function Divider() {
+  return (
+    <div
+      style={{
+        width: 1,
+        height: 20,
+        background: "var(--mc-border)",
+        flexShrink: 0,
+      }}
+    />
+  );
+}
+
 export default function CRMFilters({
   filters,
   onChange,
   prospectCount,
   partnerCount,
 }: CRMFiltersProps) {
+  const handleSourceChange = (source: CRMFilterState["source"]) => {
+    const next: CRMFilterState = { ...filters, source };
+    // Switching to Partners: reset any prospect-only status
+    if (source === "partners" && PROSPECT_ONLY_STATUSES.includes(filters.crmStatus)) {
+      next.crmStatus = "all";
+    }
+    onChange(next);
+  };
+
+  const statusOptions =
+    filters.source === "partners" ? PARTNER_STATUSES : ALL_STATUSES;
+
   return (
     <div
       style={{
@@ -93,7 +133,7 @@ export default function CRMFilters({
           <FilterChip
             key={s.value}
             active={filters.source === s.value}
-            onClick={() => onChange({ ...filters, source: s.value })}
+            onClick={() => handleSourceChange(s.value)}
           >
             {s.label}
             {s.value === "prospects" && (
@@ -126,16 +166,9 @@ export default function CRMFilters({
         ))}
       </div>
 
-      <div
-        style={{
-          width: 1,
-          height: 20,
-          background: "var(--mc-border)",
-          flexShrink: 0,
-        }}
-      />
+      <Divider />
 
-      {/* Partner type */}
+      {/* Partner / Prospect type — always visible */}
       <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
         {PARTNER_TYPES.map((v) => (
           <FilterChip
@@ -148,18 +181,11 @@ export default function CRMFilters({
         ))}
       </div>
 
-      <div
-        style={{
-          width: 1,
-          height: 20,
-          background: "var(--mc-border)",
-          flexShrink: 0,
-        }}
-      />
+      <Divider />
 
-      {/* CRM Status */}
+      {/* CRM Status — options shrink to Customer + Inactive when Partners is selected */}
       <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-        {CRM_STATUSES.map((s) => (
+        {statusOptions.map((s) => (
           <FilterChip
             key={s.value}
             active={filters.crmStatus === s.value}

@@ -23,6 +23,8 @@ interface AddressAutocompleteProps {
   onPlaceSelected: (details: PlaceDetails) => void;
   placeholder?: string;
   required?: boolean;
+  inputClassName?: string;
+  inputStyle?: React.CSSProperties;
 }
 
 // Random session token per autocomplete session (groups billing)
@@ -36,6 +38,8 @@ export default function AddressAutocomplete({
   onPlaceSelected,
   placeholder = "Start typing an address…",
   required,
+  inputClassName = "mc-input",
+  inputStyle,
 }: AddressAutocompleteProps) {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loading, setLoading] = useState(false);
@@ -78,6 +82,13 @@ export default function AddressAutocomplete({
     }
   }, []);
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && open && suggestions.length > 0) {
+      e.preventDefault();
+      handleSelect(suggestions[0]);
+    }
+  };
+
   const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const v = e.target.value;
     onChange(v);
@@ -114,14 +125,15 @@ export default function AddressAutocomplete({
     <div ref={containerRef} style={{ position: "relative" }}>
       <div style={{ position: "relative" }}>
         <input
-          className="mc-input"
+          className={inputClassName}
           value={value}
           onChange={handleInput}
+          onKeyDown={handleKeyDown}
           onFocus={() => suggestions.length > 0 && setOpen(true)}
           placeholder={placeholder}
           required={required}
           autoComplete="off"
-          style={{ paddingRight: 32 }}
+          style={{ paddingRight: 32, ...inputStyle }}
         />
         <div
           style={{
@@ -174,7 +186,7 @@ export default function AddressAutocomplete({
                 textAlign: "left",
                 transition: "background 0.1s",
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--mc-graphite)")}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--mc-border-warm)")}
               onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
             >
               <MapPin

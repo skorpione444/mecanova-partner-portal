@@ -23,8 +23,10 @@ export default function NewPartnerPage() {
   const [contactPosition, setContactPosition] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [contactPhone, setContactPhone] = useState("");
+  const [website, setWebsite] = useState("");
   const [capacityStatus, setCapacityStatus] = useState<CapacityStatus | "">("");
   const [serviceCountries, setServiceCountries] = useState("");
+  const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
@@ -56,12 +58,15 @@ export default function NewPartnerPage() {
       name: name.trim(),
       partner_type: partnerType,
       venue_type: venueType,
+      address: address.trim() || null,
       country: country.trim() || null,
       vat_id: vatId.trim() || null,
       contact_person: contactPerson.trim() || null,
       contact_position: contactPosition.trim() || null,
       contact_email: contactEmail.trim() || null,
       contact_phone: contactPhone.trim() || null,
+      website: website.trim() || null,
+      notes: notes.trim() || null,
       lat: lat ?? null,
       lng: lng ?? null,
       crm_status: "customer",
@@ -252,6 +257,18 @@ export default function NewPartnerPage() {
           />
         </div>
 
+        <div>
+          <label className="mc-label" htmlFor="website">Website</label>
+          <input
+            id="website"
+            type="text"
+            value={website}
+            onChange={(e) => setWebsite(e.target.value)}
+            className="mc-input"
+            placeholder="e.g. https://www.example.de"
+          />
+        </div>
+
         {topType === "buyer" && buyerSubType === "distributor" && (
           <>
             <div>
@@ -285,6 +302,19 @@ export default function NewPartnerPage() {
             </div>
           </>
         )}
+
+        <div>
+          <label className="mc-label" htmlFor="notes">Notes</label>
+          <textarea
+            id="notes"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            className="mc-input"
+            rows={3}
+            placeholder="Internal notes or description about this partner..."
+            style={{ resize: "vertical" }}
+          />
+        </div>
 
         <div className="flex gap-3 pt-2">
           <button type="submit" disabled={saving || !name.trim()} className="mc-btn mc-btn-primary">

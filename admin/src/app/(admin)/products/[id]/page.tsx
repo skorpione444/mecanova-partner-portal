@@ -168,6 +168,10 @@ export default function ProductDetailPage() {
                 <p className="text-sm">{product.size_ml ? `${product.size_ml} ml` : "—"}</p>
               </div>
               <div>
+                <p className="mc-label">Bottles / Case</p>
+                <p className="text-sm">{product.bottles_per_case ?? "—"}</p>
+              </div>
+              <div>
                 <p className="mc-label">Case Size</p>
                 <p className="text-sm">{product.case_size ? `${product.case_size} bottles` : "—"}</p>
               </div>

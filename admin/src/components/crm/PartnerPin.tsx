@@ -1,8 +1,9 @@
 "use client";
 
-import type { CRMStatus } from "@mecanova/shared";
+import type { CRMStatus, PartnerType } from "@mecanova/shared";
 
 interface PartnerPinProps {
+  partnerType: PartnerType;
   status: CRMStatus | null;
   onClick?: () => void;
   selected?: boolean;
@@ -16,27 +17,55 @@ const PIN_COLORS: Record<string, string> = {
   inactive: "#4a4540",
 };
 
-export default function PartnerPin({ status, onClick, selected }: PartnerPinProps) {
+export default function PartnerPin({ partnerType, status, onClick, selected }: PartnerPinProps) {
   const color = PIN_COLORS[status ?? "customer"];
-  const size = selected ? 20 : 16;
+  const stroke = selected ? "#ecdfcc" : "rgba(236,223,204,0.6)";
+  const strokeWidth = selected ? 2 : 1.5;
+  const size = selected ? 22 : 18;
+
+  const shadow = selected
+    ? `drop-shadow(0 0 4px ${color}80) drop-shadow(0 2px 4px rgba(0,0,0,0.6))`
+    : "drop-shadow(0 2px 4px rgba(0,0,0,0.5))";
 
   return (
-    <div
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 14 14"
       onClick={onClick}
-      style={{
-        width: size,
-        height: size,
-        borderRadius: "50%",
-        background: color,
-        border: selected ? "2.5px solid #ecdfcc" : "2.5px solid rgba(236,223,204,0.6)",
-        boxShadow: selected
-          ? `0 0 0 3px ${color}40, 0 3px 8px rgba(0,0,0,0.5)`
-          : "0 2px 5px rgba(0,0,0,0.4)",
-        cursor: "pointer",
-        transition: "all 0.15s ease",
-        flexShrink: 0,
-        transform: "rotate(45deg)",
-      }}
-    />
+      style={{ cursor: "pointer", filter: shadow, transition: "all 0.15s ease", display: "block", flexShrink: 0 }}
+    >
+      {partnerType === "distributor" && (
+        // Diamond
+        <polygon
+          points="7,1 13,7 7,13 1,7"
+          fill={color}
+          stroke={stroke}
+          strokeWidth={strokeWidth}
+          strokeLinejoin="round"
+        />
+      )}
+      {partnerType === "client" && (
+        // Circle
+        <circle
+          cx="7"
+          cy="7"
+          r="5.5"
+          fill={color}
+          stroke={stroke}
+          strokeWidth={strokeWidth}
+        />
+      )}
+      {partnerType === "supplier" && (
+        // Triangle
+        <polygon
+          points="7,1.5 13,12.5 1,12.5"
+          fill={color}
+          stroke={stroke}
+          strokeWidth={strokeWidth}
+          strokeLinejoin="round"
+        />
+      )}
+    </svg>
   );
 }

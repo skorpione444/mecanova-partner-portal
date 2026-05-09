@@ -3,22 +3,27 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --port 3005",
+    "dev": "next dev --port 3001",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
     "@mecanova/shared": "*",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.95.3",
+    "@xyflow/react": "^12.10.2",
     "lucide-react": "^0.574.0",
     "mapbox-gl": "^2.15.0",
     "next": "16.1.6",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "react-map-gl": "^7.1.9"
+    "react-map-gl": "^7.1.9",
+    "react-resizable-panels": "^4.10.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

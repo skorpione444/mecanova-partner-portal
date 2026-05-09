@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
+import AddressAutocomplete from "@/components/crm/AddressAutocomplete";
 import { VENUE_TYPES, VENUE_TYPE_LABELS, CAPACITY_STATUSES, CAPACITY_STATUS_LABELS } from "@mecanova/shared";
 import type { CapacityStatus } from "@mecanova/shared";
 import { Edit, ArrowLeft } from "lucide-react";
@@ -15,14 +16,19 @@ export default function EditPartnerPage() {
   const [name, setName] = useState("");
   const [topType, setTopType] = useState<"buyer" | "supplier">("buyer");
   const [buyerSubType, setBuyerSubType] = useState<string>("distributor");
+  const [address, setAddress] = useState("");
+  const [lat, setLat] = useState<number | null>(null);
+  const [lng, setLng] = useState<number | null>(null);
   const [country, setCountry] = useState("");
   const [vatId, setVatId] = useState("");
   const [contactPerson, setContactPerson] = useState("");
   const [contactPosition, setContactPosition] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [contactPhone, setContactPhone] = useState("");
+  const [website, setWebsite] = useState("");
   const [capacityStatus, setCapacityStatus] = useState<CapacityStatus | "">("");
   const [serviceCountries, setServiceCountries] = useState("");
+  const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,14 +49,19 @@ export default function EditPartnerPage() {
       }
 
       setName(data.name);
+      setAddress(data.address || "");
+      setLat(data.lat ?? null);
+      setLng(data.lng ?? null);
       setCountry(data.country || "");
       setVatId(data.vat_id || "");
       setContactPerson(data.contact_person || "");
       setContactPosition(data.contact_position || "");
       setContactEmail(data.contact_email || "");
       setContactPhone(data.contact_phone || "");
+      setWebsite(data.website || "");
       setCapacityStatus((data.capacity_status as CapacityStatus) || "");
       setServiceCountries((data.service_countries || []).join(", "));
+      setNotes(data.notes || "");
 
       if (data.partner_type === "supplier") {
         setTopType("supplier");
@@ -99,12 +110,17 @@ export default function EditPartnerPage() {
         name: name.trim(),
         partner_type: partnerType,
         venue_type: venueType,
+        address: address.trim() || null,
+        lat: lat ?? null,
+        lng: lng ?? null,
         country: country.trim() || null,
         vat_id: vatId.trim() || null,
         contact_person: contactPerson.trim() || null,
         contact_position: contactPosition.trim() || null,
         contact_email: contactEmail.trim() || null,
         contact_phone: contactPhone.trim() || null,
+        website: website.trim() || null,
+        notes: notes.trim() || null,
         capacity_status:
           partnerType === "distributor" && capacityStatus ? capacityStatus : null,
         service_countries:
@@ -207,6 +223,27 @@ export default function EditPartnerPage() {
           )}
         </div>
 
+        {/* Address with autofill */}
+        <div>
+          <label className="mc-label">Address</label>
+          <AddressAutocomplete
+            value={address}
+            onChange={setAddress}
+            onPlaceSelected={(details) => {
+              setAddress(details.address);
+              setLat(details.lat);
+              setLng(details.lng);
+              if (details.country) setCountry(details.country);
+            }}
+            placeholder="Search real address (shows on CRM map)"
+          />
+          {lat && lng && (
+            <p style={{ fontSize: "0.6875rem", color: "var(--mc-success)", marginTop: 4 }}>
+              ✓ Location confirmed — will appear on CRM map
+            </p>
+          )}
+        </div>
+
         <div>
           <label className="mc-label" htmlFor="country">Country</label>
           <input
@@ -278,6 +315,18 @@ export default function EditPartnerPage() {
           />
         </div>
 
+        <div>
+          <label className="mc-label" htmlFor="website">Website</label>
+          <input
+            id="website"
+            type="text"
+            value={website}
+            onChange={(e) => setWebsite(e.target.value)}
+            className="mc-input"
+            placeholder="e.g. https://www.example.de"
+          />
+        </div>
+
         {topType === "buyer" && buyerSubType === "distributor" && (
           <>
             <div>
@@ -311,6 +360,19 @@ export default function EditPartnerPage() {
             </div>
           </>
         )}
+
+        <div>
+          <label className="mc-label" htmlFor="notes">Notes</label>
+          <textarea
+            id="notes"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            className="mc-input"
+            rows={3}
+            placeholder="Internal notes or description about this partner..."
+            style={{ resize: "vertical" }}
+          />
+        </div>
 
         <div className="flex gap-3 pt-2">
           <button

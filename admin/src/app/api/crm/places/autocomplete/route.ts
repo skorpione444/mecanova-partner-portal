@@ -30,7 +30,11 @@ export async function POST(request: Request) {
     }),
   });
 
-  if (!res.ok) return NextResponse.json({ suggestions: [] });
+  if (!res.ok) {
+    const body = await res.text();
+    console.error("[places:autocomplete] Google returned", res.status, body);
+    return NextResponse.json({ suggestions: [] });
+  }
 
   const data = await res.json();
   const suggestions = (data.suggestions ?? []).map((s: {

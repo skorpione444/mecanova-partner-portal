@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase/client";
-import type { Partner, Prospect } from "@mecanova/shared";
+import type { Partner, Prospect, PartnerType } from "@mecanova/shared";
 import type { SelectedEntity, GooglePlaceResult } from "@/components/crm/MapView";
 import CRMFilters, { type CRMFilterState } from "@/components/crm/CRMFilters";
 import CRMSidebar from "@/components/crm/CRMSidebar";
@@ -46,8 +46,10 @@ export default function CRMPage() {
   const [convertTarget, setConvertTarget] = useState<Prospect | null>(null);
   const [userId, setUserId] = useState<string>("");
   const [mapCenter, setMapCenter] = useState({ lat: 51.17, lng: 10.45 });
-  const [searchRadius, setSearchRadius] = useState(3000);
   const [searchArea, setSearchArea] = useState<{ lat: number; lng: number; radius: number } | null>(null);
+  const [searchPanelOpen, setSearchPanelOpen] = useState(false);
+  const [searchCenter, setSearchCenter] = useState<{ lat: number; lng: number; label?: string } | null>(null);
+  const [searchPreviewRadiusM, setSearchPreviewRadiusM] = useState(5000);
 
   const supabase = createClient();
 
@@ -84,6 +86,7 @@ export default function CRMPage() {
   // Apply filters to what's shown on the map
   const filteredProspects = prospects.filter((p) => {
     if (filters.source === "partners") return false;
+    if (filters.partnerType !== "all" && p.prospect_type !== filters.partnerType) return false;
     if (filters.crmStatus !== "all" && p.crm_status !== filters.crmStatus) return false;
     return true;
   });
@@ -97,7 +100,7 @@ export default function CRMPage() {
 
   // Handle adding a Google Place as a prospect
   const handleAddProspect = useCallback(
-    async (place: GooglePlaceResult) => {
+    async (place: GooglePlaceResult, prospectType: PartnerType = "client") => {
       const { data, error } = await supabase
         .from("prospects")
         .upsert(
@@ -109,6 +112,8 @@ export default function CRMPage() {
             google_place_id: place.placeId,
             crm_status: "uncontacted",
             contact_phone: place.phone ?? null,
+            website: place.website ?? null,
+            prospect_type: prospectType,
           },
           { onConflict: "google_place_id" }
         )
@@ -171,6 +176,25 @@ export default function CRMPage() {
     [loadProspects, loadPartners]
   );
 
+  // Handle map click in center-pick mode — optimistic update then reverse-geocode
+  const handlePickCenter = useCallback(async (lng: number, lat: number) => {
+    setSearchCenter({ lat, lng });
+    try {
+      const res = await fetch(`/api/crm/places/reverse-geocode?lat=${lat}&lng=${lng}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data.address) return;
+      setSearchCenter((prev) => {
+        if (prev && prev.lat === lat && prev.lng === lng) {
+          return { lat, lng, label: data.address };
+        }
+        return prev;
+      });
+    } catch {
+      // Network error — keep coords-only label
+    }
+  }, []);
+
   return (
     // Break out of AdminShell's max-w-7xl padding container
     <div
@@ -189,15 +213,16 @@ export default function CRMPage() {
       <div style={{ flex: 1, display: "flex", overflow: "hidden", position: "relative" }}>
         {/* Map area */}
         <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
-          {/* Floating search bar */}
+          {/* Nearby Search pill — top-right of map */}
           <PlacesSearchBar
+            center={searchCenter}
+            onCenterChange={setSearchCenter}
+            radiusM={searchPreviewRadiusM}
+            onRadiusChange={setSearchPreviewRadiusM}
+            onPanelOpenChange={setSearchPanelOpen}
             onResults={setPlaceResults}
             onSearchExecuted={(center, radius) => setSearchArea({ ...center, radius })}
-            onClear={() => setSearchArea(null)}
-            mapCenter={mapCenter}
-            activeVenueType="all"
-            radius={searchRadius}
-            onRadiusChange={setSearchRadius}
+            onClear={() => { setSearchArea(null); }}
           />
 
           <MapView
@@ -208,6 +233,14 @@ export default function CRMPage() {
             onSelect={setSelected}
             onCenterChange={setMapCenter}
             searchArea={searchArea}
+            pickCenterMode={searchPanelOpen}
+            onPickCenter={handlePickCenter}
+            centerMarker={searchCenter}
+            previewArea={
+              searchCenter
+                ? { lat: searchCenter.lat, lng: searchCenter.lng, radius: searchPreviewRadiusM }
+                : null
+            }
           />
         </div>
 

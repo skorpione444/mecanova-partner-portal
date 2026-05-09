@@ -13,6 +13,7 @@
   --mc-charcoal: #111111;
   --mc-graphite: #1a1a1a;
   --mc-dark-warm: #2A2A2A;
+  --mc-dark: #111111;
 
   /* Accent — Cream / Parchment (brand primary) */
   --mc-cream: #ecdfcc;
@@ -264,6 +265,10 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--mc-text-muted);
 }
 
+.mc-input.mc-input-on-dark::placeholder {
+  color: var(--mc-text-tertiary);
+}
+
 .mc-input:hover {
   border-color: var(--mc-border-warm);
 }
@@ -279,6 +284,41 @@ h1, h2, h3, h4, h5, h6 {
   background-repeat: no-repeat;
   background-position: right 10px center;
   padding-right: 32px;
+}
+
+/* ── React Flow Dark Theme ────────────────────────────────────────────── */
+.react-flow__controls {
+  background: var(--mc-surface) !important;
+  border: 1px solid var(--mc-border) !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+
+.react-flow__controls-button {
+  background: var(--mc-surface) !important;
+  border: none !important;
+  border-bottom: 1px solid var(--mc-border) !important;
+  padding: 6px !important;
+  width: 26px !important;
+  height: 26px !important;
+}
+
+.react-flow__controls-button:last-child {
+  border-bottom: none !important;
+}
+
+.react-flow__controls-button:hover {
+  background: var(--mc-surface-elevated) !important;
+}
+
+.react-flow__controls-button svg {
+  fill: var(--mc-text-secondary) !important;
+  max-width: 12px !important;
+  max-height: 12px !important;
+}
+
+.react-flow__controls-button:hover svg {
+  fill: var(--mc-cream) !important;
 }
 
 /* ── Table System ─────────────────────────────────────────────────────── */
@@ -354,6 +394,18 @@ h1, h2, h3, h4, h5, h6 {
   outline-offset: 2px;
 }
 
-
-
+/* ── Full-height page layout ──────────────────────────────────────────────
+   Used by pages (e.g. TodoWorkspace) that need to fill the viewport rather
+   than grow with content. AdminShell adds py-6 (48px) below lg, py-8 (64px)
+   at lg+; subtracting that gives the exact available inner height.          */
+.mc-fullheight-page {
+  height: calc(100vh - 48px);
+  height: calc(100dvh - 48px);
+}
+@media (min-width: 1024px) {
+  .mc-fullheight-page {
+    height: calc(100vh - 64px);
+    height: calc(100dvh - 64px);
+  }
+}
 

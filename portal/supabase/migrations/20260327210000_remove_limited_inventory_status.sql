@@ -5,10 +5,18 @@ UPDATE public.inventory_status
   SET status = 'in_stock'
   WHERE status = 'limited';
 
--- Step 2: Recreate enum without 'limited'
+-- Step 2: Drop the column default before altering the enum type
+ALTER TABLE public.inventory_status
+  ALTER COLUMN status DROP DEFAULT;
+
+-- Step 3: Recreate enum without 'limited'
 ALTER TYPE public.inventory_status_enum RENAME TO inventory_status_enum_old;
 CREATE TYPE public.inventory_status_enum AS ENUM ('in_stock', 'out');
 ALTER TABLE public.inventory_status
   ALTER COLUMN status TYPE public.inventory_status_enum
   USING status::text::public.inventory_status_enum;
 DROP TYPE public.inventory_status_enum_old;
+
+-- Step 4: Restore the default
+ALTER TABLE public.inventory_status
+  ALTER COLUMN status SET DEFAULT 'in_stock';

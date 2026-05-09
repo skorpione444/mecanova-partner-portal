@@ -31,6 +31,12 @@ interface MapViewProps {
   onSelect: (entity: SelectedEntity | null) => void;
   onCenterChange: (center: { lat: number; lng: number }) => void;
   searchArea: { lat: number; lng: number; radius: number } | null;
+  // Search center picking
+  pickCenterMode?: boolean;
+  onPickCenter?: (lng: number, lat: number) => void;
+  centerMarker?: { lat: number; lng: number } | null;
+  // Preview circle shown while adjusting radius before searching
+  previewArea?: { lat: number; lng: number; radius: number } | null;
 }
 
 // Generates a GeoJSON polygon approximating a circle on the map
@@ -52,18 +58,29 @@ function makeCircleGeoJSON(lat: number, lng: number, radiusMeters: number, point
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? "";
 
+// Cream pin cursor shown while pick-center mode is active; hotspot at tip (14, 26)
+const PIN_CURSOR =
+  `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="%23ecdfcc" stroke="%230a0b0d" stroke-width="2" stroke-linejoin="round"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3" fill="%230a0b0d"/></svg>') 14 26, crosshair`;
+
 const INITIAL_VIEW = {
   longitude: 10.45,
   latitude: 51.17,
   zoom: 6,
 };
 
-const LEGEND = [
-  { color: "#7D7468", shape: "circle", label: "Uncontacted" },
-  { color: "#c4a35a", shape: "circle", label: "Contacted" },
-  { color: "#d4763a", shape: "circle", label: "Negotiating" },
-  { color: "#6b8f6e", shape: "diamond", label: "Customer (partner)" },
-  { color: "#5a8ab0", shape: "hollow", label: "Search result (unsaved)" },
+const SHAPE_LEGEND = [
+  { shape: "diamond", label: "Distributor" },
+  { shape: "circle",  label: "Buyer" },
+  { shape: "triangle", label: "Supplier" },
+];
+
+const STATUS_LEGEND = [
+  { color: "#7D7468", label: "Uncontacted" },
+  { color: "#c4a35a", label: "Contacted" },
+  { color: "#d4763a", label: "Negotiating" },
+  { color: "#6b8f6e", label: "Customer" },
+  { color: "#4a4540", label: "Inactive" },
+  { color: "#5a8ab0", shape: "hollow", label: "Search result" },
 ];
 
 export default function MapView({
@@ -74,17 +91,25 @@ export default function MapView({
   onSelect,
   onCenterChange,
   searchArea,
+  pickCenterMode,
+  onPickCenter,
+  centerMarker,
+  previewArea,
 }: MapViewProps) {
   const [viewState, setViewState] = useState(INITIAL_VIEW);
   const mapRef = useRef<MapRef>(null);
 
   const handleMapClick = useCallback(
-    (e: { originalEvent: MouseEvent }) => {
+    (e: { originalEvent: MouseEvent; lngLat?: { lat: number; lng: number } }) => {
       if ((e.originalEvent.target as HTMLElement).tagName === "CANVAS") {
-        onSelect(null);
+        if (pickCenterMode && onPickCenter && e.lngLat) {
+          onPickCenter(e.lngLat.lng, e.lngLat.lat);
+        } else {
+          onSelect(null);
+        }
       }
     },
-    [onSelect]
+    [onSelect, onPickCenter, pickCenterMode]
   );
 
   // Fire center update when the user stops moving the map
@@ -100,6 +125,7 @@ export default function MapView({
       <Map
         ref={mapRef}
         {...viewState}
+        cursor={pickCenterMode ? PIN_CURSOR : ""}
         onMove={(evt) => setViewState(evt.viewState)}
         onMoveEnd={handleMoveEnd}
         onClick={handleMapClick as never}
@@ -110,7 +136,27 @@ export default function MapView({
       >
         <NavigationControl position="bottom-right" showCompass={false} />
 
-        {/* Search radius circle */}
+        {/* Preview circle — shown while adjusting radius before search runs */}
+        {previewArea && !searchArea && (
+          <Source
+            id="preview-radius"
+            type="geojson"
+            data={makeCircleGeoJSON(previewArea.lat, previewArea.lng, previewArea.radius)}
+          >
+            <Layer
+              id="preview-radius-fill"
+              type="fill"
+              paint={{ "fill-color": "#ecdfcc", "fill-opacity": 0.05 }}
+            />
+            <Layer
+              id="preview-radius-border"
+              type="line"
+              paint={{ "line-color": "#ecdfcc", "line-opacity": 0.35, "line-width": 1.5, "line-dasharray": [3, 3] }}
+            />
+          </Source>
+        )}
+
+        {/* Search radius circle — shown after a search has executed */}
         {searchArea && (
           <Source
             id="search-radius"
@@ -130,6 +176,23 @@ export default function MapView({
           </Source>
         )}
 
+        {/* Center marker — pin dropped by address autocomplete or map click */}
+        {centerMarker && (
+          <Marker latitude={centerMarker.lat} longitude={centerMarker.lng} anchor="center">
+            <div
+              style={{
+                width: 16,
+                height: 16,
+                borderRadius: "50%",
+                background: "#ecdfcc",
+                border: "2px solid rgba(0,0,0,0.55)",
+                boxShadow: "0 0 0 3px rgba(236,223,204,0.35), 0 2px 8px rgba(0,0,0,0.6)",
+                pointerEvents: "none",
+              }}
+            />
+          </Marker>
+        )}
+
         {/* Partner pins (diamond shape — larger, denoting existing relationship) */}
         {partners
           .filter((p) => p.lat != null && p.lng != null)
@@ -144,6 +207,7 @@ export default function MapView({
                 anchor="center"
               >
                 <PartnerPin
+                  partnerType={partner.partner_type}
                   status={partner.crm_status}
                   selected={isSelected}
                   onClick={() => onSelect({ type: "partner", data: partner })}
@@ -166,6 +230,7 @@ export default function MapView({
                 anchor="center"
               >
                 <ProspectPin
+                  prospectType={prospect.prospect_type ?? "client"}
                   status={prospect.crm_status}
                   selected={isSelected}
                   onClick={() => onSelect({ type: "prospect", data: prospect })}
@@ -230,33 +295,41 @@ export default function MapView({
           border: "1px solid #2A2A2A",
           padding: "8px 12px",
           backdropFilter: "blur(4px)",
+          minWidth: 148,
         }}
       >
-        <p
-          style={{
-            fontSize: "0.6rem",
-            fontWeight: 600,
-            letterSpacing: "0.1em",
-            textTransform: "uppercase",
-            color: "#5C5449",
-            marginBottom: 6,
-          }}
-        >
-          Legend
+        {/* Shape = Type */}
+        <p style={{ fontSize: "0.6rem", fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: "#5C5449", marginBottom: 5 }}>
+          Type
         </p>
-        {LEGEND.map(({ color, shape, label }) => (
+        {SHAPE_LEGEND.map(({ shape, label }) => (
           <div key={label} style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 4 }}>
-            <div
-              style={{
-                width: 10,
-                height: 10,
-                borderRadius: shape === "diamond" ? 0 : "50%",
-                transform: shape === "diamond" ? "rotate(45deg)" : undefined,
-                background: shape === "hollow" ? "rgba(90,138,176,0.25)" : color,
-                border: shape === "hollow" ? `2px solid ${color}` : undefined,
-                flexShrink: 0,
-              }}
-            />
+            <svg width={11} height={11} viewBox="0 0 14 14" style={{ flexShrink: 0 }}>
+              {shape === "diamond" && (
+                <polygon points="7,1 13,7 7,13 1,7" fill="#A89F91" stroke="rgba(236,223,204,0.4)" strokeWidth={1.5} strokeLinejoin="round" />
+              )}
+              {shape === "circle" && (
+                <circle cx="7" cy="7" r="5.5" fill="#A89F91" stroke="rgba(236,223,204,0.4)" strokeWidth={1.5} />
+              )}
+              {shape === "triangle" && (
+                <polygon points="7,1.5 13,12.5 1,12.5" fill="#A89F91" stroke="rgba(236,223,204,0.4)" strokeWidth={1.5} strokeLinejoin="round" />
+              )}
+            </svg>
+            <span style={{ fontSize: "0.6875rem", color: "#A89F91" }}>{label}</span>
+          </div>
+        ))}
+
+        {/* Color = Status */}
+        <p style={{ fontSize: "0.6rem", fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: "#5C5449", marginTop: 8, marginBottom: 5 }}>
+          Status
+        </p>
+        {STATUS_LEGEND.map(({ color, shape, label }) => (
+          <div key={label} style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 4 }}>
+            {shape === "hollow" ? (
+              <div style={{ width: 10, height: 10, borderRadius: "50%", background: "rgba(90,138,176,0.25)", border: `1.5px solid ${color}`, flexShrink: 0 }} />
+            ) : (
+              <div style={{ width: 10, height: 10, borderRadius: "50%", background: color, flexShrink: 0 }} />
+            )}
             <span style={{ fontSize: "0.6875rem", color: "#A89F91" }}>{label}</span>
           </div>
         ))}
