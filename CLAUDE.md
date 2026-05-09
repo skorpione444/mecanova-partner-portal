@@ -50,3 +50,10 @@ npm run build --workspace=admin      # Build admin
 - Supabase clients: `lib/supabase/client.ts` (browser), `server.ts` (SSR), `admin.ts` (service role)
 - All pages under `(portal)/` and `(admin)/` route groups are auth-protected
 - Order status lifecycle: submitted → accepted → delivered → fulfilled (or rejected/cancelled)
+
+## Bank integration (Revolut Business)
+- Auth helper: `admin/src/lib/revolut.ts` — JWT client assertion → refresh-token flow → Bearer fetch.
+- Routes: `admin/src/app/api/revolut/{balance,sync}/route.ts`.
+- Credentials live in DB table `revolut_credentials` (singleton, id=1) — refresh tokens rotate on each use, so they cannot be in env vars. The auth helper persists the rotated token after every refresh; if persistence fails the integration breaks until manual re-consent.
+- Env vars (admin/.env.local): `REVOLUT_ACCOUNT_ID` (EUR account UUID, optional — falls back to all active EUR accounts), `REVOLUT_API_BASE` (optional, defaults to production `https://b2b.revolut.com/api/1.0`; set to `https://sandbox-b2b.revolut.com/api/1.0` for sandbox).
+- The self-signed cert uploaded to Revolut Business has a 5-year lifetime (default) — re-upload before expiry.

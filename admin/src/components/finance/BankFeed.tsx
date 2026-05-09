@@ -6,9 +6,12 @@ import { RefreshCw, X, Save, ChevronDown } from "lucide-react";
 
 interface BankTransaction {
   id: string;
-  holvi_transaction_id: string | null;
+  revolut_transaction_id: string | null;
   transaction_date: string;
   description: string | null;
+  merchant_name: string | null;
+  mcc_code: string | null;
+  currency: string;
   amount: number;
   direction: "in" | "out";
   cost_type: string;
@@ -172,7 +175,7 @@ export default function BankFeed() {
     const query = db
       .from("bank_transactions")
       .select(
-        "id, holvi_transaction_id, transaction_date, description, amount, direction, cost_type, category, assigned_to, notes, travel_reason, travel_who_met, synced_at"
+        "id, revolut_transaction_id, transaction_date, description, merchant_name, mcc_code, currency, amount, direction, cost_type, category, assigned_to, notes, travel_reason, travel_who_met, synced_at"
       )
       .order("transaction_date", { ascending: false })
       .limit(200);
@@ -195,7 +198,7 @@ export default function BankFeed() {
     setSyncing(true);
     setSyncMsg(null);
     try {
-      const res = await fetch("/api/holvi/sync", { method: "POST" });
+      const res = await fetch("/api/revolut/sync", { method: "POST" });
       const json = await res.json();
       if (res.ok) {
         setSyncMsg(`Synced ${json.fetched} transactions, ${json.new} new.`);
@@ -296,7 +299,7 @@ export default function BankFeed() {
         ) : transactions.length === 0 ? (
           <div className="p-10 text-center">
             <p className="text-xs" style={{ color: "var(--mc-text-muted)" }}>
-              No transactions yet. Click &quot;Sync Now&quot; to pull from Holvi.
+              No transactions yet. Click &quot;Sync Now&quot; to pull from Revolut.
             </p>
           </div>
         ) : (
@@ -368,7 +371,33 @@ export default function BankFeed() {
                       </div>
                     </td>
                     <td>
-                      {cats.length > 0 ? (
+                      {tx.cost_type === "uncategorized" ? (
+                        <select
+                          className="mc-select text-[10px] pr-6 py-1"
+                          value=""
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            if (!v) return;
+                            const [ct, cat] = v.split(":");
+                            updateCategory(tx.id, ct, cat);
+                          }}
+                        >
+                          <option value="">– pick –</option>
+                          {COST_TYPES.filter((ct) => ct.value !== "uncategorized").map((ct) => {
+                            const subs = CATEGORIES[ct.value] ?? [];
+                            if (subs.length === 0) return null;
+                            return (
+                              <optgroup key={ct.value} label={ct.label}>
+                                {subs.map((c) => (
+                                  <option key={`${ct.value}:${c.value}`} value={`${ct.value}:${c.value}`}>
+                                    {c.label}
+                                  </option>
+                                ))}
+                              </optgroup>
+                            );
+                          })}
+                        </select>
+                      ) : cats.length > 0 ? (
                         <select
                           className="mc-select text-[10px] pr-6 py-1"
                           value={tx.category ?? ""}

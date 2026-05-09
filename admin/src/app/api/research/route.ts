@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import Anthropic from "@anthropic-ai/sdk";
 import type { ResearchResult } from "@/lib/research-types";
 
+export const maxDuration = 120;
+
 const SYSTEM_PROMPT = `You are a business research assistant for Mecanova, a Mexican spirits importer based in Germany. Mecanova imports premium mezcal, tequila, raicilla, and other agave-based spirits from Mexico and distributes them to bars, restaurants, hotels, and distributors across Germany.
 
 When researching, focus on:

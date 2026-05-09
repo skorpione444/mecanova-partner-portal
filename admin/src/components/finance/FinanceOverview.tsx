@@ -23,7 +23,7 @@ interface MonthlyBucket {
 
 interface OverviewData {
   balance: number | null;
-  balanceSource: "holvi" | "transactions" | null;
+  balanceSource: "revolut" | "transactions" | null;
   plThisMonth: number;
   incomeThisMonth: number;
   costsThisMonth: number;
@@ -72,18 +72,18 @@ export default function FinanceOverview() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const db = supabase as any;
 
-    // Fetch balance from Holvi API
+    // Fetch balance from Revolut API
     let balance: number | null = null;
     let balanceSource: OverviewData["balanceSource"] = null;
     try {
-      const res = await fetch("/api/holvi/balance");
+      const res = await fetch("/api/revolut/balance");
       if (res.ok) {
         const json = await res.json();
         balance = json.balance;
-        balanceSource = "holvi";
+        balanceSource = "revolut";
       }
     } catch {
-      // Holvi not configured — fall through
+      // Revolut not configured — fall through
     }
 
     // Fetch last 6 months of transactions for trend + P&L
@@ -105,7 +105,7 @@ export default function FinanceOverview() {
         .select("id", { count: "exact", head: true })
         .eq("status", "overdue"),
       db
-        .from("holvi_sync_log")
+        .from("revolut_sync_log")
         .select("synced_at")
         .eq("status", "success")
         .order("synced_at", { ascending: false })
@@ -150,7 +150,7 @@ export default function FinanceOverview() {
           Math.max(burnMonthlyTotals.filter((v) => v > 0).length, 1)
         : 0;
 
-    // Fallback balance from transactions if Holvi not configured
+    // Fallback balance from transactions if Revolut not configured
     if (balance === null && txRows.length > 0) {
       let running = 0;
       for (const r of txRows) {
@@ -237,7 +237,7 @@ export default function FinanceOverview() {
                 {formatEUR(balanceNum)}
               </p>
               <p className="text-[10px] mt-1" style={{ color: "var(--mc-text-muted)" }}>
-                {data.balanceSource === "holvi" ? "Live from Holvi" : data.balanceSource === "transactions" ? "Computed from transactions" : "No data"}
+                {data.balanceSource === "revolut" ? "Live from Revolut" : data.balanceSource === "transactions" ? "Computed from transactions" : "No data"}
               </p>
             </div>
             <div

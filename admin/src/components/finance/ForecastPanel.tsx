@@ -19,10 +19,10 @@ export default function ForecastPanel() {
   const load = useCallback(async () => {
     setLoading(true);
 
-    // Fetch balance from Holvi
+    // Fetch balance from Revolut
     let bal = 0;
     try {
-      const res = await fetch("/api/holvi/balance");
+      const res = await fetch("/api/revolut/balance");
       if (res.ok) {
         const json = await res.json();
         bal = json.balance ?? 0;
@@ -63,7 +63,7 @@ export default function ForecastPanel() {
     const avgBurn = burnMonths.reduce((s, v) => s + v, 0) / 3;
     const avgRevenue = revenueMonths.reduce((s, v) => s + v, 0) / 3;
 
-    // Fallback balance from transactions if Holvi not available
+    // Fallback balance from transactions if Revolut not available
     if (bal === 0) {
       for (const r of rows) {
         bal += r.direction === "in" ? Number(r.amount) : -Number(r.amount);

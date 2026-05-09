@@ -76,6 +76,7 @@ export default function RevenuePanel() {
         .from("bank_transactions")
         .select("id, transaction_date, description, amount, category, matched_invoice_id")
         .eq("direction", "in")
+        .gt("amount", 0)
         .order("transaction_date", { ascending: false })
         .limit(100),
     ]);
@@ -222,7 +223,7 @@ export default function RevenuePanel() {
             className="text-xs font-semibold tracking-[0.08em] uppercase"
             style={{ color: "var(--mc-text-muted)" }}
           >
-            Incoming Transactions (Holvi)
+            Incoming Transactions (Revolut)
           </h3>
           <span className="ml-auto text-sm font-medium" style={{ fontFamily: "var(--font-jost), Jost, sans-serif", color: "var(--mc-success)" }}>
             {formatEUR(totalIncoming)}
@@ -231,7 +232,7 @@ export default function RevenuePanel() {
 
         {incomeTxs.length === 0 ? (
           <p className="text-xs" style={{ color: "var(--mc-text-muted)" }}>
-            No incoming transactions synced yet. Use the Bank Feed tab to sync from Holvi.
+            No incoming transactions synced yet. Use the Bank Feed tab to sync from Revolut.
           </p>
         ) : (
           <div style={{ overflowX: "auto" }}>

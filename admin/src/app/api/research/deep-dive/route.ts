@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import Anthropic from "@anthropic-ai/sdk";
 import type { DeepDiveResult } from "@/lib/research-types";
 
+export const maxDuration = 120;
+
 const SYSTEM_PROMPT = `You are a business research assistant for Mecanova, a Mexican spirits importer in Germany. You are performing a deep-dive research on a specific business.
 
 Search thoroughly for:

@@ -93,8 +93,16 @@ export default function ResearchPage() {
       });
 
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Research request failed");
+        const contentType = res.headers.get("content-type") || "";
+        if (contentType.includes("application/json")) {
+          const data = await res.json();
+          throw new Error(data.error || "Research request failed");
+        }
+        throw new Error(
+          res.status === 504 || res.status === 502
+            ? "Request timed out — try a more specific query"
+            : `Research request failed (${res.status})`
+        );
       }
 
       const data = await res.json();

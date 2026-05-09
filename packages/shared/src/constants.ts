@@ -1,4 +1,4 @@
-import type { OrderStatus, InventoryStatusEnum, PartnerType, UserRole, DocumentAudience, InvoiceStatus } from "./types";
+import type { OrderStatus, InventoryStatusEnum, PartnerType, UserRole, DocumentAudience, DocumentType, InvoiceStatus } from "./types";
 
 /** The order statuses actively used in the application */
 export const ACTIVE_ORDER_STATUSES = [
@@ -72,27 +72,93 @@ export const PRODUCT_CATEGORIES = [
 
 /** Document types */
 export const DOCUMENT_TYPES = [
-  "invoice",
-  "delivery_note",
+  "legal_registration",
+  "permit",
+  "license",
   "compliance",
+  "contract_supplier",
+  "contract_distributor",
+  "nda",
   "price_list",
-  "marketing",
-  "presentation",
   "fact_sheet",
   "brand_deck",
   "spec_sheet",
+  "invoice",
+  "delivery_note",
+  "marketing",
+  "presentation",
 ] as const;
 
 export const DOCUMENT_TYPE_LABELS: Record<string, string> = {
-  invoice: "Invoice",
-  delivery_note: "Delivery Note",
+  legal_registration: "Legal Registration",
+  permit: "Permit",
+  license: "License",
   compliance: "Compliance",
+  contract_supplier: "Supplier Contract",
+  contract_distributor: "Distributor Contract",
+  nda: "NDA",
   price_list: "Price List",
-  marketing: "Marketing",
-  presentation: "Presentation",
   fact_sheet: "Fact Sheet",
   brand_deck: "Brand Deck",
   spec_sheet: "Spec Sheet",
+  invoice: "Invoice",
+  delivery_note: "Delivery Note",
+  marketing: "Marketing",
+  presentation: "Presentation",
+};
+
+/** Document categories — top-level grouping in /documents hub */
+export const DOCUMENT_CATEGORIES = [
+  "legal",
+  "contracts",
+  "sales",
+  "operations",
+  "marketing",
+] as const;
+export type DocumentCategory = (typeof DOCUMENT_CATEGORIES)[number];
+
+export const DOCUMENT_CATEGORY_LABELS: Record<DocumentCategory, string> = {
+  legal: "Legal",
+  contracts: "Contracts",
+  sales: "Sales",
+  operations: "Operations",
+  marketing: "Marketing",
+};
+
+export const DOCUMENT_CATEGORY_DESCRIPTIONS: Record<DocumentCategory, string> = {
+  legal: "Company registrations, permits, licenses, compliance",
+  contracts: "Supplier and distributor agreements, NDAs",
+  sales: "Price lists, fact sheets, brand decks, spec sheets",
+  operations: "Invoices, delivery notes",
+  marketing: "Presentations and marketing assets",
+};
+
+/** Maps a document type to its parent category */
+export const DOCUMENT_TYPE_TO_CATEGORY: Record<DocumentType, DocumentCategory> = {
+  legal_registration: "legal",
+  permit: "legal",
+  license: "legal",
+  compliance: "legal",
+  contract_supplier: "contracts",
+  contract_distributor: "contracts",
+  nda: "contracts",
+  price_list: "sales",
+  fact_sheet: "sales",
+  brand_deck: "sales",
+  spec_sheet: "sales",
+  invoice: "operations",
+  delivery_note: "operations",
+  marketing: "marketing",
+  presentation: "marketing",
+};
+
+/** Document statuses stored in the DB (expired/expiring_soon are derived from expires_at) */
+export const DOCUMENT_STATUSES = ["active", "draft"] as const;
+export type DocumentStatus = (typeof DOCUMENT_STATUSES)[number];
+
+export const DOCUMENT_STATUS_LABELS: Record<DocumentStatus, string> = {
+  active: "Active",
+  draft: "Draft",
 };
 
 /** Document audience */

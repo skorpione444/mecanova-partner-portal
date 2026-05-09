@@ -51,12 +51,15 @@ export type Database = {
           category: string | null
           cost_type: string
           created_at: string | null
+          currency: string
           description: string | null
           direction: string
-          holvi_transaction_id: string | null
           id: string
           matched_invoice_id: string | null
+          mcc_code: string | null
+          merchant_name: string | null
           notes: string | null
+          revolut_transaction_id: string | null
           synced_at: string | null
           transaction_date: string
           travel_reason: string | null
@@ -68,12 +71,15 @@ export type Database = {
           category?: string | null
           cost_type?: string
           created_at?: string | null
+          currency?: string
           description?: string | null
           direction: string
-          holvi_transaction_id?: string | null
           id?: string
           matched_invoice_id?: string | null
+          mcc_code?: string | null
+          merchant_name?: string | null
           notes?: string | null
+          revolut_transaction_id?: string | null
           synced_at?: string | null
           transaction_date: string
           travel_reason?: string | null
@@ -85,12 +91,15 @@ export type Database = {
           category?: string | null
           cost_type?: string
           created_at?: string | null
+          currency?: string
           description?: string | null
           direction?: string
-          holvi_transaction_id?: string | null
           id?: string
           matched_invoice_id?: string | null
+          mcc_code?: string | null
+          merchant_name?: string | null
           notes?: string | null
+          revolut_transaction_id?: string | null
           synced_at?: string | null
           transaction_date?: string
           travel_reason?: string | null
@@ -211,39 +220,54 @@ export type Database = {
       documents: {
         Row: {
           audience: Database["public"]["Enums"]["document_audience_enum"]
+          category: Database["public"]["Enums"]["document_category_enum"]
+          counterparty: string | null
           created_at: string
+          expires_at: string | null
           file_path: string
           id: string
           is_highlight: boolean
           is_shared: boolean
+          notes: string | null
           partner_id: string | null
           product_id: string | null
+          status: string
           title: string
           type: Database["public"]["Enums"]["document_type_enum"]
           updated_at: string | null
         }
         Insert: {
           audience?: Database["public"]["Enums"]["document_audience_enum"]
+          category?: Database["public"]["Enums"]["document_category_enum"]
+          counterparty?: string | null
           created_at?: string
+          expires_at?: string | null
           file_path: string
           id?: string
           is_highlight?: boolean
           is_shared?: boolean
+          notes?: string | null
           partner_id?: string | null
           product_id?: string | null
+          status?: string
           title: string
           type: Database["public"]["Enums"]["document_type_enum"]
           updated_at?: string | null
         }
         Update: {
           audience?: Database["public"]["Enums"]["document_audience_enum"]
+          category?: Database["public"]["Enums"]["document_category_enum"]
+          counterparty?: string | null
           created_at?: string
+          expires_at?: string | null
           file_path?: string
           id?: string
           is_highlight?: boolean
           is_shared?: boolean
+          notes?: string | null
           partner_id?: string | null
           product_id?: string | null
+          status?: string
           title?: string
           type?: Database["public"]["Enums"]["document_type_enum"]
           updated_at?: string | null
@@ -265,7 +289,7 @@ export type Database = {
           },
         ]
       }
-      holvi_sync_log: {
+      revolut_sync_log: {
         Row: {
           error_message: string | null
           id: string
@@ -289,6 +313,36 @@ export type Database = {
           synced_at?: string | null
           transactions_fetched?: number | null
           transactions_new?: number | null
+        }
+        Relationships: []
+      }
+      revolut_credentials: {
+        Row: {
+          access_token: string | null
+          access_token_expires_at: string | null
+          client_id: string
+          id: number
+          private_key_pem: string
+          refresh_token: string
+          updated_at: string
+        }
+        Insert: {
+          access_token?: string | null
+          access_token_expires_at?: string | null
+          client_id: string
+          id?: number
+          private_key_pem: string
+          refresh_token: string
+          updated_at?: string
+        }
+        Update: {
+          access_token?: string | null
+          access_token_expires_at?: string | null
+          client_id?: string
+          id?: number
+          private_key_pem?: string
+          refresh_token?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -1859,6 +1913,12 @@ export type Database = {
         | "customer"
         | "inactive"
       document_audience_enum: "all" | "distributor" | "client" | "internal"
+      document_category_enum:
+        | "legal"
+        | "contracts"
+        | "sales"
+        | "operations"
+        | "marketing"
       document_type_enum:
         | "invoice"
         | "delivery_note"
@@ -1869,6 +1929,12 @@ export type Database = {
         | "fact_sheet"
         | "brand_deck"
         | "spec_sheet"
+        | "legal_registration"
+        | "permit"
+        | "license"
+        | "contract_supplier"
+        | "contract_distributor"
+        | "nda"
       inventory_status_enum: "in_stock" | "out"
       invoice_status_enum: "sent" | "paid" | "overdue"
       order_status_enum:
@@ -2056,6 +2122,13 @@ export const Constants = {
         "inactive",
       ],
       document_audience_enum: ["all", "distributor", "client", "internal"],
+      document_category_enum: [
+        "legal",
+        "contracts",
+        "sales",
+        "operations",
+        "marketing",
+      ],
       document_type_enum: [
         "invoice",
         "delivery_note",
@@ -2066,6 +2139,12 @@ export const Constants = {
         "fact_sheet",
         "brand_deck",
         "spec_sheet",
+        "legal_registration",
+        "permit",
+        "license",
+        "contract_supplier",
+        "contract_distributor",
+        "nda",
       ],
       inventory_status_enum: ["in_stock", "out"],
       invoice_status_enum: ["sent", "paid", "overdue"],

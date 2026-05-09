@@ -33,7 +33,7 @@ export default function FinancePage() {
     <div>
       <PageHeader
         title="Finance"
-        description="P&L, cash runway, transaction feed, and projections powered by Holvi"
+        description="P&L, cash runway, transaction feed, and projections powered by Revolut"
         icon={DollarSign}
       />
 
