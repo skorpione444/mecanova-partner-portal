@@ -1,13 +1,18 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import PageHeader from "@/components/PageHeader";
 import PricingInputPanel from "@/components/pricing/PricingInputPanel";
 import PricingResultsPanel from "@/components/pricing/PricingResultsPanel";
+import SaveScenarioDialog from "@/components/pricing/SaveScenarioDialog";
 import { calcPricing, DEFAULT_PRICING_INPUTS } from "@/components/pricing/pricingCalc";
+import { toast } from "@/components/ui/Toast";
 import { Calculator } from "lucide-react";
 import type { PricingInputs, PricingMode, PricingSystemSetting } from "@mecanova/shared";
+import type { ExportBundle } from "@/lib/pricingExport/types";
+import { downloadBlob, exportFilename } from "@/lib/pricingExport/download";
 
 interface ProductRow {
   id: string;
@@ -20,10 +25,23 @@ interface ProductRow {
   hs_code: string | null;
 }
 
-export default function PricingPage() {
+interface EditingScenario {
+  id: string;
+  name: string;
+  notes: string;
+}
+
+function PricingPageInner() {
+  const searchParams = useSearchParams();
+  const scenarioId = searchParams.get("scenarioId");
+  const preselectedProductId = searchParams.get("productId");
+
   const [inputs, setInputs] = useState<PricingInputs>(DEFAULT_PRICING_INPUTS);
   const [products, setProducts] = useState<ProductRow[]>([]);
   const [settings, setSettings] = useState<Record<string, number>>({});
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editingScenario, setEditingScenario] = useState<EditingScenario | null>(null);
   const supabase = createClient();
 
   useEffect(() => {
@@ -37,21 +55,51 @@ export default function PricingPage() {
         supabase.from("pricing_system_settings").select("key, value_numeric"),
       ]);
       if (prods) setProducts(prods);
+
+      let defaultInputs: Partial<PricingInputs> = {};
       if (setts) {
         const map: Record<string, number> = {};
         for (const s of setts as PricingSystemSetting[]) {
           if (s.value_numeric !== null) map[s.key] = s.value_numeric;
         }
         setSettings(map);
-        // Apply system defaults to initial inputs
-        setInputs((prev) => ({
-          ...prev,
-          fxUsdEur: map.default_fx_usd_eur ?? prev.fxUsdEur,
-          fxMxnEur: map.default_fx_mxn_eur ?? prev.fxMxnEur,
-          exciseRatePerHl: map.branntweinsteuer_per_hl ?? prev.exciseRatePerHl,
-          importVatRate: map.default_import_vat_rate ?? prev.importVatRate,
-        }));
+        defaultInputs = {
+          fxUsdEur: map.default_fx_usd_eur,
+          fxMxnEur: map.default_fx_mxn_eur,
+          exciseRatePerHl: map.branntweinsteuer_per_hl,
+          importVatRate: map.default_import_vat_rate,
+        };
       }
+
+      // If editing an existing scenario, hydrate inputs from it
+      if (scenarioId) {
+        const { data: scenario } = await supabase
+          .from("product_pricing_scenarios")
+          .select("id, name, notes, calculation_snapshot")
+          .eq("id", scenarioId)
+          .single();
+
+        if (scenario?.calculation_snapshot) {
+          const snap = scenario.calculation_snapshot as unknown as { inputs: PricingInputs };
+          setInputs(snap.inputs);
+          setEditingScenario({
+            id: scenario.id,
+            name: scenario.name,
+            notes: scenario.notes ?? "",
+          });
+          return;
+        }
+      }
+
+      // Apply system defaults + optional product preselect
+      setInputs((prev) => ({
+        ...prev,
+        ...(defaultInputs.fxUsdEur !== undefined && { fxUsdEur: defaultInputs.fxUsdEur }),
+        ...(defaultInputs.fxMxnEur !== undefined && { fxMxnEur: defaultInputs.fxMxnEur }),
+        ...(defaultInputs.exciseRatePerHl !== undefined && { exciseRatePerHl: defaultInputs.exciseRatePerHl }),
+        ...(defaultInputs.importVatRate !== undefined && { importVatRate: defaultInputs.importVatRate }),
+        ...(preselectedProductId && { productId: preselectedProductId }),
+      }));
     };
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -67,11 +115,91 @@ export default function PricingPage() {
   const bottlesPerCase = selectedProduct?.bottles_per_case ?? selectedProduct?.case_size ?? 6;
 
   const result = useMemo(() => {
-    if (!inputs.productId && inputs.supplierPricePerCase === 0) return null;
+    if (inputs.mode === "cost_up" && inputs.supplierPricePerCase === 0) return null;
+    if (inputs.mode === "price_down" && (!inputs.targetPricePerCase || inputs.targetPricePerCase === 0)) return null;
     return calcPricing(inputs, abv, sizeMl, bottlesPerCase);
   }, [inputs, abv, sizeMl, bottlesPerCase]);
 
   const setMode = (mode: PricingMode) => setInputs((p) => ({ ...p, mode }));
+
+  const handleExport = async (kind: "pdf" | "excel") => {
+    if (!result || !selectedProduct) return;
+    const bundle: ExportBundle = {
+      inputs,
+      result,
+      productName: selectedProduct.name,
+      productBrand: selectedProduct.brand,
+      abv,
+      sizeMl,
+      bottlesPerCase,
+      scenarioName: editingScenario?.name,
+      notes: editingScenario?.notes || null,
+    };
+    const filename = exportFilename(
+      { productName: selectedProduct.name, scenarioName: editingScenario?.name },
+      kind === "pdf" ? "pdf" : "xlsx"
+    );
+    if (kind === "pdf") {
+      const { exportToPdf } = await import("@/lib/pricingExport/pdf");
+      const blob = await exportToPdf(bundle);
+      downloadBlob(blob, filename);
+    } else {
+      const { exportToExcel } = await import("@/lib/pricingExport/excel");
+      const blob = await exportToExcel(bundle);
+      downloadBlob(blob, filename);
+    }
+  };
+
+  const handleSave = async (name: string, notes: string) => {
+    if (!result) return;
+    setSaving(true);
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast.error("Not authenticated");
+      setSaving(false);
+      return;
+    }
+
+    const payload = JSON.parse(JSON.stringify({
+      name,
+      notes: notes || null,
+      product_id: inputs.productId || null,
+      mode: inputs.mode,
+      supplier_currency: inputs.supplierCurrency,
+      result_landed_cost_case: result.totalLandedCostPerCase,
+      result_min_price_case: result.minSellingPricePerCase,
+      result_max_supplier_case: result.maxSupplierPriceEur,
+      result_actual_margin_pct: result.actualMarginPct,
+      volume_tiers: inputs.volumeTiers,
+      calculation_snapshot: { inputs, result, mode: inputs.mode, snapshotVersion: 1 },
+    }));
+
+    let error;
+    if (editingScenario) {
+      ({ error } = await supabase
+        .from("product_pricing_scenarios")
+        .update({ ...payload, updated_at: new Date().toISOString() })
+        .eq("id", editingScenario.id));
+    } else {
+      ({ error } = await supabase
+        .from("product_pricing_scenarios")
+        .insert({ ...payload, created_by: user.id }));
+    }
+
+    setSaving(false);
+    if (error) {
+      toast.error("Failed to save measurement");
+      return;
+    }
+
+    toast.success(editingScenario ? "Changes saved" : "Measurement saved");
+    setDialogOpen(false);
+
+    if (editingScenario) {
+      setEditingScenario({ ...editingScenario, name, notes });
+    }
+  };
 
   return (
     <div>
@@ -123,9 +251,30 @@ export default function PricingPage() {
             bottlesPerCase={bottlesPerCase}
             selectedProduct={selectedProduct}
             settings={settings}
+            onSave={() => setDialogOpen(true)}
+            editingName={editingScenario?.name ?? null}
+            onExport={result ? handleExport : undefined}
           />
         </div>
       </div>
+
+      <SaveScenarioDialog
+        isOpen={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        onSave={handleSave}
+        isSaving={saving}
+        isEditing={!!editingScenario}
+        initialName={editingScenario?.name ?? ""}
+        initialNotes={editingScenario?.notes ?? ""}
+      />
     </div>
+  );
+}
+
+export default function PricingPage() {
+  return (
+    <Suspense fallback={null}>
+      <PricingPageInner />
+    </Suspense>
   );
 }

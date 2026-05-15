@@ -19,6 +19,9 @@ interface Props {
   bottlesPerCase: number;
   selectedProduct: ProductRow | null;
   settings: Record<string, number>;
+  onSave?: () => void;
+  editingName?: string | null;
+  onExport?: (kind: "pdf" | "excel") => void;
 }
 
 const fmt = (v: number) => `€${(v ?? 0).toFixed(2)}`;
@@ -128,6 +131,9 @@ export default function PricingResultsPanel({
   inputs,
   bottlesPerCase,
   selectedProduct,
+  onSave,
+  editingName,
+  onExport,
 }: Props) {
   if (!result) return <EmptyState />;
 
@@ -181,6 +187,26 @@ export default function PricingResultsPanel({
 
   return (
     <div className="space-y-4">
+      {/* Editing pill */}
+      {editingName && (
+        <div
+          className="px-3 py-2 text-xs flex items-center gap-2"
+          style={{
+            background: "rgba(236, 223, 204, 0.06)",
+            border: "1px solid var(--mc-border-warm)",
+            color: "var(--mc-cream-subtle)",
+          }}
+        >
+          <span
+            className="text-[9px] font-semibold tracking-[0.08em] uppercase"
+            style={{ color: "var(--mc-text-muted)" }}
+          >
+            Editing
+          </span>
+          <span className="font-medium">{editingName}</span>
+        </div>
+      )}
+
       {/* Headline card */}
       <div
         className="p-5 flex items-end justify-between"
@@ -204,29 +230,61 @@ export default function PricingResultsPanel({
             <span className="text-xs ml-1" style={{ color: "var(--mc-text-muted)" }}>/ bottle</span>
           </div>
         </div>
-        <div className="text-right">
-          <div
-            className="text-[10px] font-semibold tracking-[0.08em] uppercase mb-1"
-            style={{ color: "var(--mc-text-muted)" }}
-          >
-            Actual Margin
+        <div className="text-right flex flex-col items-end gap-3">
+          <div>
+            <div
+              className="text-[10px] font-semibold tracking-[0.08em] uppercase mb-1"
+              style={{ color: "var(--mc-text-muted)" }}
+            >
+              Actual Margin
+            </div>
+            <div
+              className="text-xl font-semibold tabular-nums"
+              style={{
+                color:
+                  result.actualMarginPct >= 35
+                    ? "var(--mc-success)"
+                    : result.actualMarginPct >= 20
+                    ? "var(--mc-warning)"
+                    : "var(--mc-error)",
+              }}
+            >
+              {result.actualMarginPct.toFixed(1)}%
+            </div>
+            <div className="text-[10px] mt-0.5" style={{ color: "var(--mc-text-muted)" }}>
+              Landed cost: {fmt(result.totalLandedCostPerCase)}/case
+            </div>
           </div>
-          <div
-            className="text-xl font-semibold tabular-nums"
-            style={{
-              color:
-                result.actualMarginPct >= 35
-                  ? "var(--mc-success)"
-                  : result.actualMarginPct >= 20
-                  ? "var(--mc-warning)"
-                  : "var(--mc-error)",
-            }}
-          >
-            {result.actualMarginPct.toFixed(1)}%
-          </div>
-          <div className="text-[10px] mt-0.5" style={{ color: "var(--mc-text-muted)" }}>
-            Landed cost: {fmt(result.totalLandedCostPerCase)}/case
-          </div>
+          {onSave && (
+            <button
+              className="mc-btn mc-btn-primary"
+              onClick={onSave}
+              disabled={!selectedProduct}
+              title={!selectedProduct ? "Select a product first" : undefined}
+            >
+              {editingName ? "Save changes" : "Save measurement"}
+            </button>
+          )}
+          {onExport && (
+            <div className="flex gap-1">
+              <button
+                className="mc-btn mc-btn-ghost"
+                onClick={() => onExport("pdf")}
+                title="Export as PDF"
+                style={{ fontSize: 10 }}
+              >
+                PDF
+              </button>
+              <button
+                className="mc-btn mc-btn-ghost"
+                onClick={() => onExport("excel")}
+                title="Export as Excel (with live formulas)"
+                style={{ fontSize: 10 }}
+              >
+                Excel
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
