@@ -858,6 +858,50 @@ export type Database = {
           },
         ]
       }
+      product_prices: {
+        Row: {
+          amount: number
+          bottles_per_case: number
+          created_at: string
+          created_by: string
+          currency: string
+          id: string
+          notes: string | null
+          product_id: string
+          unit: string
+        }
+        Insert: {
+          amount: number
+          bottles_per_case: number
+          created_at?: string
+          created_by: string
+          currency?: string
+          id?: string
+          notes?: string | null
+          product_id: string
+          unit: string
+        }
+        Update: {
+          amount?: number
+          bottles_per_case?: number
+          created_at?: string
+          created_by?: string
+          currency?: string
+          id?: string
+          notes?: string | null
+          product_id?: string
+          unit?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_prices_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_pricing_scenarios: {
         Row: {
           breakage_pct: number | null
@@ -2206,6 +2250,7 @@ export type Partner = Tables<"partners">
 export type Profile = Tables<"profiles">
 export type Product = Tables<"products">
 export type ProductAsset = Tables<"product_assets">
+export type ProductPrice = Tables<"product_prices">
 export type OrderRequest = Tables<"order_requests">
 export type OrderRequestItem = Tables<"order_request_items">
 export type InventoryStatus = Tables<"inventory_status">

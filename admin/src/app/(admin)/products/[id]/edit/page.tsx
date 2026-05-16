@@ -7,7 +7,8 @@ import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 import { PRODUCT_CATEGORIES } from "@mecanova/shared";
 import type { ProductCategory } from "@mecanova/shared";
-import { Edit, ArrowLeft, ArrowUpRight } from "lucide-react";
+import { Edit, ArrowLeft, ArrowUpRight, Tag } from "lucide-react";
+import ProductPricesPanel from "../../_components/ProductPricesPanel";
 
 const CATEGORY_LABELS: Record<string, string> = {
   tequila: "Tequila",
@@ -46,6 +47,7 @@ export default function EditProductPage() {
   const [caseSize, setCaseSize] = useState("");
   const [sku, setSku] = useState("");
   const [description, setDescription] = useState("");
+  const [productBpc, setProductBpc] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -72,6 +74,7 @@ export default function EditProductPage() {
       setAbv(data.abv?.toString() || "");
       setSizeMl(data.size_ml?.toString() || "");
       setCaseSize(data.case_size?.toString() || "");
+      setProductBpc(data.bottles_per_case ?? data.case_size ?? null);
       setSku(data.sku || "");
       setDescription(data.description || "");
       setLoading(false);
@@ -116,6 +119,14 @@ export default function EditProductPage() {
       </div>
     );
   }
+
+  const parsedCase = parseInt(caseSize);
+  const priceFactor =
+    Number.isFinite(parsedCase) && parsedCase > 0
+      ? parsedCase
+      : productBpc && productBpc > 0
+      ? productBpc
+      : null;
 
   return (
     <div>
@@ -282,6 +293,23 @@ export default function EditProductPage() {
           <Link href={`/products/${id}`} className="mc-btn mc-btn-ghost">Cancel</Link>
         </div>
       </form>
+
+      <div className="mc-card p-6 max-w-2xl mt-5">
+        <div className="flex items-center gap-2 mb-1">
+          <Tag className="w-3.5 h-3.5" style={{ color: "var(--mc-cream-subtle)" }} />
+          <h3
+            className="text-xs font-semibold tracking-[0.08em] uppercase"
+            style={{ color: "var(--mc-text-muted)" }}
+          >
+            Prices
+          </h3>
+        </div>
+        <p className="text-[11px] mb-4" style={{ color: "var(--mc-text-muted)" }}>
+          Record the prices you receive from contracts. Newest is shown at the top. Enter per
+          bottle or per case — the other is calculated automatically.
+        </p>
+        <ProductPricesPanel productId={id} bottlesPerCase={priceFactor} editable />
+      </div>
     </div>
   );
 }
