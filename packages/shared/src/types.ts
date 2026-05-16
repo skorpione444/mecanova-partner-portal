@@ -446,6 +446,7 @@ export type Database = {
       invoices: {
         Row: {
           amount: number
+          amount_paid: number
           client_id: string
           created_at: string
           created_by_user: string
@@ -463,6 +464,7 @@ export type Database = {
         }
         Insert: {
           amount: number
+          amount_paid?: number
           client_id: string
           created_at?: string
           created_by_user: string
@@ -480,6 +482,7 @@ export type Database = {
         }
         Update: {
           amount?: number
+          amount_paid?: number
           client_id?: string
           created_at?: string
           created_by_user?: string
@@ -633,6 +636,8 @@ export type Database = {
       order_requests: {
         Row: {
           accepted_at: string | null
+          amount_due: number | null
+          amount_paid: number
           cancelled_at: string | null
           client_id: string | null
           created_at: string
@@ -646,6 +651,8 @@ export type Database = {
           id: string
           notes: string | null
           partner_id: string
+          payment_due_date: string | null
+          paid_at: string | null
           rejected_at: string | null
           status: Database["public"]["Enums"]["order_status_enum"]
           submitted_at: string | null
@@ -653,6 +660,10 @@ export type Database = {
         }
         Insert: {
           accepted_at?: string | null
+          amount_due?: number | null
+          amount_paid?: number
+          payment_due_date?: string | null
+          paid_at?: string | null
           cancelled_at?: string | null
           client_id?: string | null
           created_at?: string
@@ -673,6 +684,10 @@ export type Database = {
         }
         Update: {
           accepted_at?: string | null
+          amount_due?: number | null
+          amount_paid?: number
+          payment_due_date?: string | null
+          paid_at?: string | null
           cancelled_at?: string | null
           client_id?: string | null
           created_at?: string

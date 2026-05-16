@@ -5,6 +5,7 @@ import PageHeader from "@/components/PageHeader";
 import FinanceOverview from "@/components/finance/FinanceOverview";
 import CostBreakdown from "@/components/finance/CostBreakdown";
 import RevenuePanel from "@/components/finance/RevenuePanel";
+import ReceivablesPanel from "@/components/finance/ReceivablesPanel";
 import BankFeed from "@/components/finance/BankFeed";
 import ForecastPanel from "@/components/finance/ForecastPanel";
 import {
@@ -14,12 +15,14 @@ import {
   TrendingUp,
   ArrowLeftRight,
   BarChart3,
+  Receipt,
 } from "lucide-react";
 
 const TABS = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
   { id: "costs", label: "Costs", icon: TrendingDown },
   { id: "revenue", label: "Revenue", icon: TrendingUp },
+  { id: "receivables", label: "Receivables", icon: Receipt },
   { id: "bank-feed", label: "Bank Feed", icon: ArrowLeftRight },
   { id: "forecast", label: "Forecast", icon: BarChart3 },
 ] as const;
@@ -77,6 +80,7 @@ export default function FinancePage() {
       {activeTab === "overview" && <FinanceOverview />}
       {activeTab === "costs" && <CostBreakdown />}
       {activeTab === "revenue" && <RevenuePanel />}
+      {activeTab === "receivables" && <ReceivablesPanel />}
       {activeTab === "bank-feed" && <BankFeed />}
       {activeTab === "forecast" && <ForecastPanel />}
     </div>

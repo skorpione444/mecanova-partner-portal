@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { FileText, ArrowDownLeft } from "lucide-react";
+import { ArrowDownLeft } from "lucide-react";
 
 interface Invoice {
   id: string;
@@ -27,31 +27,6 @@ interface IncomeTx {
 
 const formatEUR = (n: number) =>
   new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(n);
-
-const STATUS_COLORS: Record<string, string> = {
-  paid: "var(--mc-success)",
-  sent: "var(--mc-warning)",
-  overdue: "var(--mc-error)",
-};
-
-function StatusChip({ status }: { status: string }) {
-  return (
-    <span
-      className="text-[10px] font-semibold px-2 py-0.5 tracking-[0.05em] uppercase"
-      style={{
-        color: STATUS_COLORS[status] ?? "var(--mc-text-muted)",
-        background:
-          status === "paid"
-            ? "var(--mc-success-bg)"
-            : status === "overdue"
-              ? "var(--mc-error-bg)"
-              : "var(--mc-warning-bg)",
-      }}
-    >
-      {status}
-    </span>
-  );
-}
 
 export default function RevenuePanel() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -146,73 +121,6 @@ export default function RevenuePanel() {
             </p>
           </div>
         ))}
-      </div>
-
-      {/* Invoices table */}
-      <div className="mc-card p-5">
-        <div className="flex items-center gap-2 mb-4">
-          <FileText className="w-4 h-4" style={{ color: "var(--mc-cream-subtle)" }} strokeWidth={1.5} />
-          <h3
-            className="text-xs font-semibold tracking-[0.08em] uppercase"
-            style={{ color: "var(--mc-text-muted)" }}
-          >
-            Invoices
-          </h3>
-          <span className="ml-auto text-[10px]" style={{ color: "var(--mc-text-muted)" }}>
-            {invoices.length} total
-          </span>
-        </div>
-
-        {invoices.length === 0 ? (
-          <p className="text-xs" style={{ color: "var(--mc-text-muted)" }}>
-            No invoices yet.
-          </p>
-        ) : (
-          <div style={{ overflowX: "auto" }}>
-            <table className="mc-table">
-              <thead>
-                <tr>
-                  <th>Invoice #</th>
-                  <th>Distributor</th>
-                  <th>Client</th>
-                  <th>Due</th>
-                  <th>Status</th>
-                  <th style={{ textAlign: "right" }}>Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {invoices.map((inv) => (
-                  <tr key={inv.id}>
-                    <td className="text-xs font-mono" style={{ color: "var(--mc-text-primary)" }}>
-                      {inv.invoice_number}
-                    </td>
-                    <td className="text-xs" style={{ color: "var(--mc-text-primary)" }}>
-                      {inv.distributor?.name ?? "–"}
-                    </td>
-                    <td className="text-xs" style={{ color: "var(--mc-text-muted)" }}>
-                      {inv.client?.name ?? "–"}
-                    </td>
-                    <td
-                      className="text-[11px] font-mono"
-                      style={{ color: "var(--mc-text-muted)", whiteSpace: "nowrap" }}
-                    >
-                      {inv.due_date}
-                    </td>
-                    <td>
-                      <StatusChip status={inv.status} />
-                    </td>
-                    <td
-                      className="text-xs font-mono"
-                      style={{ textAlign: "right", color: "var(--mc-success)", whiteSpace: "nowrap" }}
-                    >
-                      +{formatEUR(inv.amount)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
       </div>
 
       {/* Incoming bank transactions */}

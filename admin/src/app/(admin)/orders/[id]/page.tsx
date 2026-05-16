@@ -595,6 +595,123 @@ export default function OrderDetailPage() {
             </button>
           </div>
 
+          {/* Payment */}
+          <div className="mc-card p-5">
+            <h3
+              className="text-xs font-semibold tracking-[0.08em] uppercase mb-4"
+              style={{ color: "var(--mc-text-muted)" }}
+            >
+              Payment
+            </h3>
+            {order.amount_due == null && !order.paid_at ? (
+              <p className="text-[11px]" style={{ color: "var(--mc-text-muted)" }}>
+                No payment terms yet — set when the order is delivered.
+              </p>
+            ) : (
+              (() => {
+                const total = order.amount_due ?? 0;
+                const paid = order.amount_paid ?? 0;
+                const pct =
+                  total > 0
+                    ? Math.round((paid / total) * 100)
+                    : order.paid_at
+                      ? 100
+                      : 0;
+                const fully = !!order.paid_at || (total > 0 && paid >= total);
+                const today = new Date().toISOString().slice(0, 10);
+                const overdue =
+                  !fully && !!order.payment_due_date && order.payment_due_date < today;
+                const statusLabel = fully
+                  ? "Paid"
+                  : paid > 0
+                    ? `Partial ${pct}%`
+                    : overdue
+                      ? "Overdue"
+                      : "Open";
+                const statusColor = fully
+                  ? "var(--mc-success)"
+                  : overdue
+                    ? "var(--mc-error)"
+                    : paid > 0
+                      ? "var(--mc-warning)"
+                      : "var(--mc-text-muted)";
+                const fmt = (n: number) => `€${n.toFixed(2)}`;
+                const persist = async (newPaid: number) => {
+                  const f = total > 0 && newPaid >= total;
+                  const nowIso = new Date().toISOString();
+                  await supabase
+                    .from("order_requests")
+                    .update({ amount_paid: newPaid, paid_at: f ? nowIso : null })
+                    .eq("id", id);
+                  setOrder({ ...order, amount_paid: newPaid, paid_at: f ? nowIso : null });
+                };
+                return (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px]" style={{ color: "var(--mc-text-muted)" }}>Status</span>
+                      <span
+                        className="text-[10px] font-semibold tracking-[0.05em] uppercase"
+                        style={{ color: statusColor }}
+                      >
+                        {statusLabel}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px]" style={{ color: "var(--mc-text-muted)" }}>Amount due</span>
+                      <span className="text-xs font-mono">{fmt(total)}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px]" style={{ color: "var(--mc-text-muted)" }}>Paid</span>
+                      <span className="text-xs font-mono">{fmt(paid)}</span>
+                    </div>
+                    {order.payment_due_date && (
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px]" style={{ color: "var(--mc-text-muted)" }}>Due date</span>
+                        <span
+                          className="text-xs font-mono"
+                          style={{ color: overdue ? "var(--mc-error)" : undefined }}
+                        >
+                          {order.payment_due_date}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        className="mc-btn mc-btn-ghost"
+                        style={{ fontSize: 11 }}
+                        onClick={async () => {
+                          const v = window.prompt("Amount paid so far (€)", String(paid));
+                          if (v == null) return;
+                          const n = parseFloat(v);
+                          if (!isNaN(n)) await persist(Math.max(0, n));
+                        }}
+                      >
+                        Record payment
+                      </button>
+                      {fully ? (
+                        <button
+                          className="mc-btn mc-btn-ghost"
+                          style={{ fontSize: 11 }}
+                          onClick={() => persist(0)}
+                        >
+                          Mark unpaid
+                        </button>
+                      ) : (
+                        <button
+                          className="mc-btn mc-btn-success"
+                          style={{ fontSize: 11 }}
+                          onClick={() => persist(total)}
+                        >
+                          Mark fully paid
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()
+            )}
+          </div>
+
           {/* Timeline */}
           <div className="mc-card p-5">
             <h3

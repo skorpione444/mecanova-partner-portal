@@ -83,6 +83,8 @@ interface FulfillmentModalState {
   }[];
   // allocation[product_id][distributor_id] = cases string
   allocation: Record<string, Record<string, string>>;
+  paymentDueDate: string;
+  amountDue: string;
   loading: boolean;
   submitting: boolean;
 }
@@ -1154,7 +1156,13 @@ function OperationsPageContent() {
   };
 
   const openFulfillmentModal = async (order: OrderRow, action: "accept" | "deliver") => {
-    setFulfillmentModal({ order, action, stockRows: [], allocation: {}, loading: true, submitting: false });
+    const amountDueDefault = order.items
+      .reduce((s, i) => s + i.cases_qty * (i.price_per_case ?? 0), 0)
+      .toFixed(2);
+    const dueD = new Date();
+    dueD.setDate(dueD.getDate() + 30);
+    const paymentDueDefault = dueD.toISOString().slice(0, 10);
+    setFulfillmentModal({ order, action, stockRows: [], allocation: {}, paymentDueDate: paymentDueDefault, amountDue: amountDueDefault, loading: true, submitting: false });
 
     const productIds = order.items.map((i) => i.product_id);
 
@@ -1213,14 +1221,14 @@ function OperationsPageContent() {
       };
     });
 
-    setFulfillmentModal({ order, action, stockRows, allocation: defaultAllocation, loading: false, submitting: false });
+    setFulfillmentModal({ order, action, stockRows, allocation: defaultAllocation, paymentDueDate: paymentDueDefault, amountDue: amountDueDefault, loading: false, submitting: false });
   };
 
   const handleFulfillmentSubmit = async (splitAction: "hold" | "cancel" | "full") => {
     if (!fulfillmentModal || fulfillmentModal.submitting) return;
     setFulfillmentModal((prev) => prev ? { ...prev, submitting: true } : prev);
 
-    const { order, action, stockRows, allocation } = fulfillmentModal;
+    const { order, action, stockRows, allocation, paymentDueDate, amountDue } = fulfillmentModal;
     const now = new Date().toISOString();
     const targetStatus = action === "accept" ? "accepted" : "delivered";
     const timestampField = action === "accept" ? "accepted_at" : "delivered_at";
@@ -1265,12 +1273,20 @@ function OperationsPageContent() {
       }
     }
 
-    // Update original order status
+    // Update original order status (capture payment terms on delivery)
+    const paymentFields =
+      action === "deliver"
+        ? {
+            payment_due_date: paymentDueDate || null,
+            amount_due: parseFloat(amountDue) || null,
+          }
+        : {};
     await supabase.from("order_requests").update({
       status: targetStatus,
       distributor_id: primaryDistId,
       [timestampField]: now,
       updated_at: now,
+      ...paymentFields,
     }).eq("id", order.id);
 
     // Inventory deduction per location if delivering
@@ -3744,6 +3760,53 @@ function OperationsPageContent() {
                 <X className="w-4 h-4" />
               </button>
             </div>
+
+            {fulfillmentModal.action === "deliver" && (
+              <div
+                className="mb-5 p-3"
+                style={{ background: "var(--mc-surface-elevated)", border: "1px solid var(--mc-border)" }}
+              >
+                <p
+                  className="text-[10px] font-semibold tracking-[0.08em] uppercase mb-2"
+                  style={{ color: "var(--mc-text-muted)" }}
+                >
+                  Payment
+                </p>
+                <div className="flex gap-3">
+                  <div style={{ flex: 1 }}>
+                    <label className="mc-label">Amount due (€)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={fulfillmentModal.amountDue}
+                      onChange={(e) =>
+                        setFulfillmentModal((prev) =>
+                          prev ? { ...prev, amountDue: e.target.value } : prev
+                        )
+                      }
+                      className="mc-input"
+                    />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label className="mc-label">Payment due date</label>
+                    <input
+                      type="date"
+                      value={fulfillmentModal.paymentDueDate}
+                      onChange={(e) =>
+                        setFulfillmentModal((prev) =>
+                          prev ? { ...prev, paymentDueDate: e.target.value } : prev
+                        )
+                      }
+                      className="mc-input"
+                    />
+                  </div>
+                </div>
+                <p className="text-[10px] mt-1.5" style={{ color: "var(--mc-text-muted)" }}>
+                  Prefilled from the order total and a 30-day term — edit if the agreed terms differ.
+                </p>
+              </div>
+            )}
 
             {fulfillmentModal.loading ? (
               <div className="space-y-3">
