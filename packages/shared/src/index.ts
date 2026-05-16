@@ -8,6 +8,7 @@ export type {
   Profile,
   Product,
   ProductAsset,
+  ProductPrice,
   OrderRequest,
   OrderRequestItem,
   InventoryStatus,
