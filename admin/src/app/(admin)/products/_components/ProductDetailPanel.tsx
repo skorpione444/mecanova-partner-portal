@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import CostBreakdownBar from "@/components/CostBreakdownBar";
 import ProductPricesPanel from "./ProductPricesPanel";
+import ProductFormModal from "./ProductFormModal";
 
 interface ScenarioRow {
   id: string;
@@ -74,7 +75,7 @@ type Tab = "overview" | "assets" | "pricing" | "prices";
 
 interface Props {
   id: string;
-  onProductChanged?: () => void;
+  onProductChanged?: (p?: Product) => void;
 }
 
 export default function ProductDetailPanel({ id, onProductChanged }: Props) {
@@ -86,6 +87,8 @@ export default function ProductDetailPanel({ id, onProductChanged }: Props) {
   const [tab, setTab] = useState<Tab>("overview");
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editingPrices, setEditingPrices] = useState(false);
   const supabase = createClient();
 
   const load = useCallback(async () => {
@@ -136,6 +139,8 @@ export default function ProductDetailPanel({ id, onProductChanged }: Props) {
   useEffect(() => {
     setTab("overview");
     setExpandedId(null);
+    setEditOpen(false);
+    setEditingPrices(false);
     load();
   }, [load]);
 
@@ -150,12 +155,13 @@ export default function ProductDetailPanel({ id, onProductChanged }: Props) {
     if (!product) return;
     setToggling(true);
     await supabase.from("products").update({ active: !product.active }).eq("id", id);
-    setProduct({ ...product, active: !product.active });
+    const updated = { ...product, active: !product.active };
+    setProduct(updated);
     setToggling(false);
-    onProductChanged?.();
+    onProductChanged?.(updated as Product);
   };
 
-  if (loading) {
+  if (loading && !product) {
     return (
       <div style={{ flex: 1, padding: 24, overflowY: "auto" }}>
         <div className="mc-skeleton h-6 w-48 mb-4" />
@@ -176,7 +182,21 @@ export default function ProductDetailPanel({ id, onProductChanged }: Props) {
   ];
 
   return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", position: "relative" }}>
+      {loading && (
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 2,
+            background: "var(--mc-cream)",
+            opacity: 0.7,
+            zIndex: 5,
+          }}
+        />
+      )}
       {/* Panel header */}
       <div
         style={{
@@ -226,10 +246,25 @@ export default function ProductDetailPanel({ id, onProductChanged }: Props) {
               {product.active ? <ToggleRight className="w-3.5 h-3.5" /> : <ToggleLeft className="w-3.5 h-3.5" />}
               {product.active ? "Deactivate" : "Activate"}
             </button>
-            <Link href={`/products/${id}/edit`} className="mc-btn mc-btn-ghost">
-              <Edit className="w-3.5 h-3.5" />
-              Edit
-            </Link>
+            {tab === "overview" && (
+              <button
+                onClick={() => setEditOpen(true)}
+                className="mc-btn mc-btn-ghost"
+              >
+                <Edit className="w-3.5 h-3.5" />
+                Edit
+              </button>
+            )}
+            {tab === "prices" && (
+              <button
+                onClick={() => setEditingPrices((v) => !v)}
+                className="mc-btn mc-btn-ghost"
+                style={{ color: editingPrices ? "var(--mc-cream)" : undefined }}
+              >
+                <Edit className="w-3.5 h-3.5" />
+                {editingPrices ? "Done" : "Edit"}
+              </button>
+            )}
           </div>
         </div>
 
@@ -717,17 +752,33 @@ export default function ProductDetailPanel({ id, onProductChanged }: Props) {
               Prices
             </h3>
             <p className="text-[11px] mb-4" style={{ color: "var(--mc-text-muted)" }}>
-              Contract prices received for this product, newest first. Edit the product to add
-              or remove entries.
+              Contract prices received for this product, newest first.
+              {editingPrices
+                ? " Add or remove entries below; use “Done” (top right) when finished."
+                : " Click “Edit” (top right) to add or remove entries."}
             </p>
             <ProductPricesPanel
               productId={id}
               bottlesPerCase={product.bottles_per_case ?? product.case_size}
-              editable={false}
+              editable={editingPrices}
+              onChanged={() => onProductChanged?.()}
             />
           </div>
         )}
       </div>
+
+      {editOpen && product && (
+        <ProductFormModal
+          mode="edit"
+          product={product}
+          onClose={() => setEditOpen(false)}
+          onSaved={(updated) => {
+            setProduct((prev) => (prev ? { ...prev, ...updated } : prev));
+            onProductChanged?.(updated);
+            setEditOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }

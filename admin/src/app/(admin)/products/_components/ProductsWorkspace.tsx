@@ -2,13 +2,13 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import Link from "next/link";
 import PageHeader from "@/components/PageHeader";
 import EmptyState from "@/components/EmptyState";
 import type { Product } from "@mecanova/shared";
 import { Package, Plus } from "lucide-react";
 import ProductsSidebar from "./ProductsSidebar";
 import ProductDetailPanel from "./ProductDetailPanel";
+import ProductFormModal from "./ProductFormModal";
 
 interface Props {
   selectedId: string | null;
@@ -20,18 +20,18 @@ export default function ProductsWorkspace({ selectedId }: Props) {
   const [products, setProducts] = useState<ProductWithSupplier[]>([]);
   const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sel, setSel] = useState<string | null>(selectedId);
+  const [showCreate, setShowCreate] = useState(false);
   const supabase = createClient();
 
   const loadProducts = useCallback(async () => {
     setLoading(true);
     const { data } = await supabase.from("products").select("*").order("name");
-
     if (!data) {
       setProducts([]);
       setLoading(false);
       return;
     }
-
     const supplierIds = [...new Set(data.map((p) => p.supplier_id).filter(Boolean))] as string[];
     let supplierMap = new Map<string, string>();
     if (supplierIds.length > 0) {
@@ -41,7 +41,6 @@ export default function ProductsWorkspace({ selectedId }: Props) {
         .in("id", supplierIds);
       supplierMap = new Map((sups || []).map((s) => [s.id, s.name]));
     }
-
     setProducts(
       data.map((p) => ({
         ...p,
@@ -67,6 +66,47 @@ export default function ProductsWorkspace({ selectedId }: Props) {
     loadSuppliers();
   }, [loadProducts, loadSuppliers]);
 
+  // Deep-link / route prop change → reflect as selection.
+  useEffect(() => {
+    setSel(selectedId);
+  }, [selectedId]);
+
+  // Browser back/forward keeps selection in sync without a route remount.
+  useEffect(() => {
+    const onPop = () => {
+      const m = window.location.pathname.match(/^\/products\/([^/]+)/);
+      setSel(m ? decodeURIComponent(m[1]) : null);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  // Client-side selection: update the address bar but do NOT trigger a Next
+  // route navigation (which would remount the workspace and refetch).
+  const handleSelect = useCallback((id: string) => {
+    setSel(id);
+    if (window.location.pathname !== `/products/${id}`) {
+      window.history.pushState(null, "", `/products/${id}`);
+    }
+  }, []);
+
+  // Patch a single product in place (no full refetch) after an edit, or
+  // fall back to a full reload when no product object is provided.
+  const handleProductChanged = useCallback(
+    (p?: Product) => {
+      if (p) {
+        setProducts((prev) =>
+          prev
+            .map((x) => (x.id === p.id ? { ...x, ...p } : x))
+            .sort((a, b) => a.name.localeCompare(b.name))
+        );
+      } else {
+        loadProducts();
+      }
+    },
+    [loadProducts]
+  );
+
   const activeCount = products.filter((p) => p.active).length;
   const inactiveCount = products.length - activeCount;
 
@@ -75,30 +115,33 @@ export default function ProductsWorkspace({ selectedId }: Props) {
       className="mc-fullheight-page"
       style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}
     >
-      {/* Header */}
       <PageHeader
         title="Products"
         description={`${activeCount} active${inactiveCount > 0 ? `, ${inactiveCount} inactive` : ""}`}
         icon={Package}
         actions={
-          <Link href="/products/new" className="mc-btn mc-btn-primary">
+          <button
+            type="button"
+            onClick={() => setShowCreate(true)}
+            className="mc-btn mc-btn-primary"
+          >
             <Plus className="w-3.5 h-3.5" />
             Add Product
-          </Link>
+          </button>
         }
       />
 
-      {/* Split view */}
       <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
         <ProductsSidebar
           products={products}
           suppliers={suppliers}
-          selectedId={selectedId}
+          selectedId={sel}
           loading={loading}
+          onSelect={handleSelect}
         />
 
-        {selectedId ? (
-          <ProductDetailPanel id={selectedId} onProductChanged={loadProducts} />
+        {sel ? (
+          <ProductDetailPanel id={sel} onProductChanged={handleProductChanged} />
         ) : (
           <div
             style={{
@@ -116,6 +159,20 @@ export default function ProductsWorkspace({ selectedId }: Props) {
           </div>
         )}
       </div>
+
+      {showCreate && (
+        <ProductFormModal
+          mode="create"
+          onClose={() => setShowCreate(false)}
+          onSaved={(p) => {
+            setProducts((prev) =>
+              [...prev, p].sort((a, b) => a.name.localeCompare(b.name))
+            );
+            setShowCreate(false);
+            handleSelect(p.id);
+          }}
+        />
+      )}
     </div>
   );
 }

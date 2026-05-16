@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import type { Product } from "@mecanova/shared";
 import { PRODUCT_CATEGORIES } from "@mecanova/shared";
 import { Search, ChevronDown, ChevronRight, Package } from "lucide-react";
@@ -13,6 +12,7 @@ interface Props {
   suppliers: { id: string; name: string }[];
   selectedId: string | null;
   loading: boolean;
+  onSelect: (id: string) => void;
 }
 
 type StatusFilter = "all" | "active" | "inactive";
@@ -30,8 +30,7 @@ interface Group {
   products: ProductWithSupplier[];
 }
 
-export default function ProductsSidebar({ products, suppliers, selectedId, loading }: Props) {
-  const router = useRouter();
+export default function ProductsSidebar({ products, suppliers, selectedId, loading, onSelect }: Props) {
   const [search, setSearch] = useState("");
   const [supplierFilter, setSupplierFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -209,7 +208,7 @@ export default function ProductsSidebar({ products, suppliers, selectedId, loadi
                     return (
                       <button
                         key={p.id}
-                        onClick={() => router.push(`/products/${p.id}`, { scroll: false })}
+                        onClick={() => onSelect(p.id)}
                         style={{
                           width: "100%",
                           display: "flex",
