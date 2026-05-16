@@ -12,6 +12,8 @@ export type {
   ProductPrice,
   OrderRequest,
   OrderRequestItem,
+  Shipment,
+  ShipmentItem,
   InventoryStatus,
   InventoryMovement,
   Document,

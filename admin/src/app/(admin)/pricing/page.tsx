@@ -7,6 +7,7 @@ import PageHeader from "@/components/PageHeader";
 import PricingInputPanel from "@/components/pricing/PricingInputPanel";
 import PricingResultsPanel from "@/components/pricing/PricingResultsPanel";
 import SaveScenarioDialog from "@/components/pricing/SaveScenarioDialog";
+import ShipmentsWorkspace from "@/components/pricing/ShipmentsWorkspace";
 import { calcPricing, DEFAULT_PRICING_INPUTS } from "@/components/pricing/pricingCalc";
 import { toast } from "@/components/ui/Toast";
 import { Calculator } from "lucide-react";
@@ -42,6 +43,7 @@ function PricingPageInner() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editingScenario, setEditingScenario] = useState<EditingScenario | null>(null);
+  const [view, setView] = useState<"calculator" | "shipments">("calculator");
   const supabase = createClient();
 
   useEffect(() => {
@@ -209,6 +211,30 @@ function PricingPageInner() {
         icon={Calculator}
       />
 
+      <div className="flex gap-1 mb-5">
+        {(["calculator", "shipments"] as const).map((v) => {
+          const active = view === v;
+          return (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              className="px-4 py-2 text-xs font-semibold tracking-[0.06em] uppercase transition-colors"
+              style={{
+                background: active ? "var(--mc-cream)" : "var(--mc-surface-elevated)",
+                color: active ? "var(--mc-dark)" : "var(--mc-text-muted)",
+                border: "1px solid var(--mc-border)",
+              }}
+            >
+              {v === "calculator" ? "Calculator" : "Shipments"}
+            </button>
+          );
+        })}
+      </div>
+
+      {view === "shipments" && <ShipmentsWorkspace />}
+
+      {view === "calculator" && (
+      <>
       {/* Mode toggle */}
       <div className="flex gap-1 mb-6">
         {(["cost_up", "price_down"] as PricingMode[]).map((m) => {
@@ -267,6 +293,8 @@ function PricingPageInner() {
         initialName={editingScenario?.name ?? ""}
         initialNotes={editingScenario?.notes ?? ""}
       />
+      </>
+      )}
     </div>
   );
 }

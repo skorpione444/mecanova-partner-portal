@@ -1308,6 +1308,123 @@ export type Database = {
         }
         Relationships: []
       }
+      shipment_items: {
+        Row: {
+          calculation_snapshot: Json | null
+          created_at: string
+          id: string
+          mode: string
+          product_id: string
+          quantity_cases: number
+          result_actual_margin_pct: number | null
+          result_landed_cost_case: number | null
+          result_max_supplier_case: number | null
+          result_min_price_case: number | null
+          shipment_id: string
+          supplier_currency: string
+          supplier_price_per_case: number | null
+          updated_at: string
+        }
+        Insert: {
+          calculation_snapshot?: Json | null
+          created_at?: string
+          id?: string
+          mode?: string
+          product_id: string
+          quantity_cases?: number
+          result_actual_margin_pct?: number | null
+          result_landed_cost_case?: number | null
+          result_max_supplier_case?: number | null
+          result_min_price_case?: number | null
+          shipment_id: string
+          supplier_currency?: string
+          supplier_price_per_case?: number | null
+          updated_at?: string
+        }
+        Update: {
+          calculation_snapshot?: Json | null
+          created_at?: string
+          id?: string
+          mode?: string
+          product_id?: string
+          quantity_cases?: number
+          result_actual_margin_pct?: number | null
+          result_landed_cost_case?: number | null
+          result_max_supplier_case?: number | null
+          result_min_price_case?: number | null
+          shipment_id?: string
+          supplier_currency?: string
+          supplier_price_per_case?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shipment_items_shipment_id_fkey"
+            columns: ["shipment_id"]
+            isOneToOne: false
+            referencedRelation: "shipments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shipment_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shipments: {
+        Row: {
+          created_at: string
+          created_by: string
+          dom_logistics_eur: number
+          freight_mode: string
+          id: string
+          intl_freight_amount: number
+          intl_freight_currency: string
+          local_transport_amount: number
+          local_transport_currency: string
+          name: string
+          notes: string | null
+          pallets: number | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          dom_logistics_eur?: number
+          freight_mode?: string
+          id?: string
+          intl_freight_amount?: number
+          intl_freight_currency?: string
+          local_transport_amount?: number
+          local_transport_currency?: string
+          name: string
+          notes?: string | null
+          pallets?: number | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          dom_logistics_eur?: number
+          freight_mode?: string
+          id?: string
+          intl_freight_amount?: number
+          intl_freight_currency?: string
+          local_transport_amount?: number
+          local_transport_currency?: string
+          name?: string
+          notes?: string | null
+          pallets?: number | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       status_templates: {
         Row: {
           created_at: string
@@ -2313,6 +2430,8 @@ export type ProductAsset = Tables<"product_assets">
 export type ProductPrice = Tables<"product_prices">
 export type OrderRequest = Tables<"order_requests">
 export type OrderRequestItem = Tables<"order_request_items">
+export type Shipment = Tables<"shipments">
+export type ShipmentItem = Tables<"shipment_items">
 export type InventoryStatus = Tables<"inventory_status">
 export type InventoryMovement = Tables<"inventory_movements">
 export type Document = Tables<"documents">
