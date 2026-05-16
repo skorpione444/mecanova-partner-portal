@@ -13,6 +13,9 @@ interface CRMFiltersProps {
   onChange: (filters: CRMFilterState) => void;
   prospectCount: number;
   partnerCount: number;
+  ordersFilterActive: boolean;
+  onOrdersFilterChange: (active: boolean) => void;
+  openOrderCount: number;
 }
 
 const PARTNER_TYPES: { value: PartnerType | "all"; label: string }[] = [
@@ -101,6 +104,9 @@ export default function CRMFilters({
   onChange,
   prospectCount,
   partnerCount,
+  ordersFilterActive,
+  onOrdersFilterChange,
+  openOrderCount,
 }: CRMFiltersProps) {
   const handleSourceChange = (source: CRMFilterState["source"]) => {
     const next: CRMFilterState = { ...filters, source };
@@ -194,6 +200,29 @@ export default function CRMFilters({
             {s.label}
           </FilterChip>
         ))}
+      </div>
+
+      <Divider />
+
+      {/* Orders — highlight partners with at least one open order in red */}
+      <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+        <FilterChip
+          active={ordersFilterActive}
+          onClick={() => onOrdersFilterChange(!ordersFilterActive)}
+        >
+          Orders
+          <span
+            style={{
+              marginLeft: 5,
+              fontSize: "0.6rem",
+              background: "var(--mc-graphite)",
+              padding: "1px 5px",
+              borderRadius: 99,
+            }}
+          >
+            {openOrderCount}
+          </span>
+        </FilterChip>
       </div>
     </div>
   );

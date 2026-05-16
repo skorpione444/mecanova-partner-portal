@@ -7,6 +7,7 @@ interface PartnerPinProps {
   status: CRMStatus | null;
   onClick?: () => void;
   selected?: boolean;
+  hasOpenOrders?: boolean;
 }
 
 const PIN_COLORS: Record<string, string> = {
@@ -17,8 +18,10 @@ const PIN_COLORS: Record<string, string> = {
   inactive: "#4a4540",
 };
 
-export default function PartnerPin({ partnerType, status, onClick, selected }: PartnerPinProps) {
-  const color = PIN_COLORS[status ?? "customer"];
+const OPEN_ORDER_COLOR = "#c4373a";
+
+export default function PartnerPin({ partnerType, status, onClick, selected, hasOpenOrders }: PartnerPinProps) {
+  const color = hasOpenOrders ? OPEN_ORDER_COLOR : PIN_COLORS[status ?? "customer"];
   const stroke = selected ? "#ecdfcc" : "rgba(236,223,204,0.6)";
   const strokeWidth = selected ? 2 : 1.5;
   const size = selected ? 22 : 18;
