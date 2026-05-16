@@ -8,7 +8,8 @@ import PageHeader from "@/components/PageHeader";
 import AddressAutocomplete from "@/components/crm/AddressAutocomplete";
 import { VENUE_TYPES, VENUE_TYPE_LABELS, CAPACITY_STATUSES, CAPACITY_STATUS_LABELS } from "@mecanova/shared";
 import type { CapacityStatus } from "@mecanova/shared";
-import { Edit, ArrowLeft } from "lucide-react";
+import { Edit, ArrowLeft, Users } from "lucide-react";
+import PartnerContactsPanel from "../../_components/PartnerContactsPanel";
 
 export default function EditPartnerPage() {
   const params = useParams();
@@ -266,6 +267,15 @@ export default function EditPartnerPage() {
           />
         </div>
 
+        <div className="pt-1" style={{ borderTop: "1px solid var(--mc-border)" }}>
+          <p
+            className="text-[10px] font-semibold tracking-[0.1em] uppercase"
+            style={{ color: "var(--mc-text-muted)" }}
+          >
+            Primary contact
+          </p>
+        </div>
+
         <div style={{ display: "flex", gap: 8 }}>
           <div style={{ flex: 2 }}>
             <label className="mc-label" htmlFor="contactPerson">Contact Person</label>
@@ -387,6 +397,23 @@ export default function EditPartnerPage() {
           </Link>
         </div>
       </form>
+
+      <div className="mc-card p-6 max-w-xl mt-5">
+        <div className="flex items-center gap-2 mb-1">
+          <Users className="w-3.5 h-3.5" style={{ color: "var(--mc-cream-subtle)" }} />
+          <h3
+            className="text-xs font-semibold tracking-[0.08em] uppercase"
+            style={{ color: "var(--mc-text-muted)" }}
+          >
+            Additional contacts
+          </h3>
+        </div>
+        <p className="text-[11px] mb-4" style={{ color: "var(--mc-text-muted)" }}>
+          Extra contact people for this partner. The primary contact above is the one shown on
+          orders and in the CRM.
+        </p>
+        <PartnerContactsPanel partnerId={id} editable />
+      </div>
     </div>
   );
 }

@@ -715,6 +715,50 @@ export type Database = {
           },
         ]
       }
+      partner_contacts: {
+        Row: {
+          contact_email: string | null
+          contact_person: string | null
+          contact_phone: string | null
+          contact_position: string | null
+          created_at: string
+          created_by: string
+          id: string
+          notes: string | null
+          partner_id: string
+        }
+        Insert: {
+          contact_email?: string | null
+          contact_person?: string | null
+          contact_phone?: string | null
+          contact_position?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          notes?: string | null
+          partner_id: string
+        }
+        Update: {
+          contact_email?: string | null
+          contact_person?: string | null
+          contact_phone?: string | null
+          contact_position?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          notes?: string | null
+          partner_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_contacts_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       partners: {
         Row: {
           address: string | null
@@ -2247,6 +2291,7 @@ export const Constants = {
 
 // ── Application-level type aliases ───────────────────────────────────
 export type Partner = Tables<"partners">
+export type PartnerContact = Tables<"partner_contacts">
 export type Profile = Tables<"profiles">
 export type Product = Tables<"products">
 export type ProductAsset = Tables<"product_assets">

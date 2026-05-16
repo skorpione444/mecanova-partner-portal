@@ -5,6 +5,7 @@ export type {
   Tables,
   Enums,
   Partner,
+  PartnerContact,
   Profile,
   Product,
   ProductAsset,

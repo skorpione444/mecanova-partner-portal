@@ -19,7 +19,12 @@ import {
   Package,
   Globe,
   EyeOff,
+  Phone,
+  Star,
 } from "lucide-react";
+import PartnerContactsPanel from "./PartnerContactsPanel";
+import PartnerFormModal from "./PartnerFormModal";
+import PartnerNotesModal from "./PartnerNotesModal";
 
 interface RelationshipEntry {
   partner_id: string;
@@ -37,11 +42,11 @@ interface PartnerDetail extends Partner {
   products: { id: string; name: string }[];
 }
 
-type Tab = "overview" | "users" | "orders" | "products" | "notes";
+type Tab = "overview" | "users" | "contacts" | "orders" | "products" | "notes";
 
 interface Props {
   id: string;
-  onPartnerChanged?: () => void;
+  onPartnerChanged?: (p?: Partner) => void;
 }
 
 export default function PartnerDetailPanel({ id, onPartnerChanged }: Props) {
@@ -53,6 +58,9 @@ export default function PartnerDetailPanel({ id, onPartnerChanged }: Props) {
   const [inviting, setInviting] = useState(false);
   const [inviteMsg, setInviteMsg] = useState<string | null>(null);
   const [markingInactive, setMarkingInactive] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
+  const [editingContacts, setEditingContacts] = useState(false);
 
   const supabase = createClient();
 
@@ -136,6 +144,9 @@ export default function PartnerDetailPanel({ id, onPartnerChanged }: Props) {
   useEffect(() => {
     setTab("overview");
     setInviteMsg(null);
+    setEditingContacts(false);
+    setEditOpen(false);
+    setNotesOpen(false);
     load();
   }, [load]);
 
@@ -170,20 +181,20 @@ export default function PartnerDetailPanel({ id, onPartnerChanged }: Props) {
   const handleMarkInactive = async () => {
     setMarkingInactive(true);
     await supabase.from("partners").update({ crm_status: "inactive" }).eq("id", id);
-    await load();
     setMarkingInactive(false);
-    onPartnerChanged?.();
+    setPartner((prev) => (prev ? { ...prev, crm_status: "inactive" } : prev));
+    if (partner) onPartnerChanged?.({ ...(partner as Partner), crm_status: "inactive" });
   };
 
   const handleReactivate = async () => {
     setMarkingInactive(true);
     await supabase.from("partners").update({ crm_status: "customer" }).eq("id", id);
-    await load();
     setMarkingInactive(false);
-    onPartnerChanged?.();
+    setPartner((prev) => (prev ? { ...prev, crm_status: "customer" } : prev));
+    if (partner) onPartnerChanged?.({ ...(partner as Partner), crm_status: "customer" });
   };
 
-  if (loading) {
+  if (loading && !partner) {
     return (
       <div style={{ flex: 1, padding: 24, overflowY: "auto" }}>
         <div className="mc-skeleton h-6 w-48 mb-4" />
@@ -203,13 +214,28 @@ export default function PartnerDetailPanel({ id, onPartnerChanged }: Props) {
   const tabs: { id: Tab; label: string; count?: number }[] = [
     { id: "overview", label: "Overview" },
     { id: "users", label: "Users", count: partner.profiles.length },
+    { id: "contacts" as Tab, label: "Contacts" },
     { id: "orders", label: "Orders", count: partner.orders.length },
     ...(isSupplier ? [{ id: "products" as Tab, label: "Products", count: partner.products.length }] : []),
     { id: "notes", label: "Notes" },
   ];
 
   return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", position: "relative" }}>
+      {loading && (
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 2,
+            background: "var(--mc-cream)",
+            opacity: 0.7,
+            zIndex: 5,
+          }}
+        />
+      )}
       {/* Panel header */}
       <div
         style={{
@@ -300,14 +326,40 @@ export default function PartnerDetailPanel({ id, onPartnerChanged }: Props) {
                 {markingInactive ? "Saving…" : "Mark Inactive"}
               </button>
             )}
-            <Link
-              href={`/partners/${id}/edit`}
-              className="mc-btn mc-btn-ghost"
-              style={{ fontSize: "0.6875rem", padding: "4px 8px" }}
-            >
-              <Edit className="w-3 h-3" />
-              Edit
-            </Link>
+            {tab === "overview" && (
+              <button
+                onClick={() => setEditOpen(true)}
+                className="mc-btn mc-btn-ghost"
+                style={{ fontSize: "0.6875rem", padding: "4px 8px" }}
+              >
+                <Edit className="w-3 h-3" />
+                Edit
+              </button>
+            )}
+            {tab === "contacts" && (
+              <button
+                onClick={() => setEditingContacts((v) => !v)}
+                className="mc-btn mc-btn-ghost"
+                style={{
+                  fontSize: "0.6875rem",
+                  padding: "4px 8px",
+                  color: editingContacts ? "var(--mc-cream)" : undefined,
+                }}
+              >
+                <Edit className="w-3 h-3" />
+                {editingContacts ? "Done" : "Edit"}
+              </button>
+            )}
+            {tab === "notes" && (
+              <button
+                onClick={() => setNotesOpen(true)}
+                className="mc-btn mc-btn-ghost"
+                style={{ fontSize: "0.6875rem", padding: "4px 8px" }}
+              >
+                <Edit className="w-3 h-3" />
+                Edit
+              </button>
+            )}
           </div>
         </div>
 
@@ -642,6 +694,92 @@ export default function PartnerDetailPanel({ id, onPartnerChanged }: Props) {
           </div>
         )}
 
+        {tab === "contacts" && (
+          <div className="mc-card p-4">
+            <h3
+              className="text-[10px] font-semibold tracking-[0.08em] uppercase mb-3"
+              style={{ color: "var(--mc-text-muted)" }}
+            >
+              Contacts
+            </h3>
+            <div
+              className="p-3 mb-4"
+              style={{ background: "var(--mc-surface-elevated)", border: "1px solid var(--mc-border)" }}
+            >
+              <div className="flex items-center gap-1.5 mb-1">
+                <Star className="w-3 h-3" style={{ color: "var(--mc-cream)" }} />
+                <span
+                  className="text-[10px] font-semibold tracking-[0.08em] uppercase"
+                  style={{ color: "var(--mc-text-muted)" }}
+                >
+                  Primary contact
+                </span>
+              </div>
+              {partner.contact_person || partner.contact_email || partner.contact_phone ? (
+                <>
+                  <p className="text-xs font-medium" style={{ color: "var(--mc-text-primary)" }}>
+                    {partner.contact_person || "—"}
+                    {partner.contact_position && (
+                      <span className="font-normal" style={{ color: "var(--mc-text-muted)" }}>
+                        {" · "}{partner.contact_position}
+                      </span>
+                    )}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
+                    {partner.contact_email && (
+                      <a
+                        href={`mailto:${partner.contact_email}`}
+                        className="inline-flex items-center gap-1 text-[11px]"
+                        style={{ color: "var(--mc-info)", textDecoration: "none" }}
+                      >
+                        <Mail className="w-3 h-3" />
+                        {partner.contact_email}
+                      </a>
+                    )}
+                    {partner.contact_phone && (
+                      <a
+                        href={`tel:${partner.contact_phone}`}
+                        className="inline-flex items-center gap-1 text-[11px]"
+                        style={{ color: "var(--mc-info)", textDecoration: "none" }}
+                      >
+                        <Phone className="w-3 h-3" />
+                        {partner.contact_phone}
+                      </a>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <p className="text-xs" style={{ color: "var(--mc-text-muted)" }}>
+                  No primary contact set —{" "}
+                  <button
+                    type="button"
+                    onClick={() => setEditOpen(true)}
+                    style={{ color: "var(--mc-cream)", background: "none", border: "none", padding: 0, cursor: "pointer" }}
+                  >
+                    add one
+                  </button>
+                </p>
+              )}
+            </div>
+            <p
+              className="text-[10px] font-semibold tracking-[0.08em] uppercase mb-2"
+              style={{ color: "var(--mc-text-muted)" }}
+            >
+              Additional contacts
+            </p>
+            <PartnerContactsPanel
+              partnerId={id}
+              editable={editingContacts}
+              onChanged={() => onPartnerChanged?.()}
+            />
+            {editingContacts && (
+              <p className="text-[10px] mt-3" style={{ color: "var(--mc-text-muted)" }}>
+                Editing — use the “Done” button (top right) when finished.
+              </p>
+            )}
+          </div>
+        )}
+
         {tab === "notes" && (
           <div className="mc-card p-4">
             <h3
@@ -660,14 +798,43 @@ export default function PartnerDetailPanel({ id, onPartnerChanged }: Props) {
             ) : (
               <p className="text-xs" style={{ color: "var(--mc-text-muted)" }}>
                 No notes yet —{" "}
-                <Link href={`/partners/${id}/edit`} style={{ color: "var(--mc-cream)" }}>
-                  add one in edit
-                </Link>
+                <button
+                  type="button"
+                  onClick={() => setNotesOpen(true)}
+                  style={{ color: "var(--mc-cream)", background: "none", border: "none", padding: 0, cursor: "pointer" }}
+                >
+                  add one
+                </button>
               </p>
             )}
           </div>
         )}
       </div>
+
+      {editOpen && (
+        <PartnerFormModal
+          mode="edit"
+          partner={partner}
+          onClose={() => setEditOpen(false)}
+          onSaved={(updated) => {
+            setPartner((prev) => (prev ? { ...prev, ...updated } : prev));
+            onPartnerChanged?.(updated);
+            setEditOpen(false);
+          }}
+        />
+      )}
+
+      {notesOpen && (
+        <PartnerNotesModal
+          partner={partner}
+          onClose={() => setNotesOpen(false)}
+          onSaved={(notes) => {
+            setPartner((prev) => (prev ? { ...prev, notes } : prev));
+            onPartnerChanged?.({ ...(partner as Partner), notes });
+            setNotesOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }

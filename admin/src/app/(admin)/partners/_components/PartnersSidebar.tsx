@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import type { Partner } from "@mecanova/shared";
 import { VENUE_TYPE_LABELS } from "@mecanova/shared";
 import { Search, ChevronDown, ChevronRight, Building2, User, Factory } from "lucide-react";
@@ -10,6 +9,7 @@ interface Props {
   partners: Partner[];
   selectedId: string | null;
   loading: boolean;
+  onSelect: (id: string) => void;
 }
 
 type TypeFilter = "all" | "mecanova" | "supplier" | "distributor" | "buyer";
@@ -21,8 +21,7 @@ interface Group {
   partners: Partner[];
 }
 
-export default function PartnersSidebar({ partners, selectedId, loading }: Props) {
-  const router = useRouter();
+export default function PartnersSidebar({ partners, selectedId, loading, onSelect }: Props) {
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -241,7 +240,7 @@ export default function PartnersSidebar({ partners, selectedId, loading }: Props
                     return (
                       <button
                         key={p.id}
-                        onClick={() => router.push(`/partners/${p.id}`, { scroll: false })}
+                        onClick={() => onSelect(p.id)}
                         style={{
                           width: "100%",
                           display: "flex",
