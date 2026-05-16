@@ -2950,26 +2950,15 @@ function OperationsPageContent() {
                           <td>
                             <div className="flex items-center gap-3 flex-wrap">
                               {!order.notes?.startsWith("[DESTROYED]") && order.status === "submitted" && (
-                                <>
-                                  <button
-                                    onClick={() => openFulfillmentModal(order, "accept")}
-                                    className="text-[11px] font-medium transition-colors"
-                                    style={{ color: "var(--mc-success)" }}
-                                    onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.7")}
-                                    onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
-                                  >
-                                    Accept →
-                                  </button>
-                                  <button
-                                    onClick={() => openFulfillmentModal(order, "deliver")}
-                                    className="text-[11px] transition-colors"
-                                    style={{ color: "var(--mc-text-muted)" }}
-                                    onMouseEnter={(e) => (e.currentTarget.style.color = "var(--mc-cream)")}
-                                    onMouseLeave={(e) => (e.currentTarget.style.color = "var(--mc-text-muted)")}
-                                  >
-                                    Deliver →
-                                  </button>
-                                </>
+                                <button
+                                  onClick={() => openFulfillmentModal(order, "deliver")}
+                                  className="text-[11px] font-medium transition-colors"
+                                  style={{ color: "var(--mc-success)" }}
+                                  onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.7")}
+                                  onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
+                                >
+                                  Deliver →
+                                </button>
                               )}
                               {!order.notes?.startsWith("[DESTROYED]") && order.status === "accepted" && (
                                 <button
