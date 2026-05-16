@@ -37,6 +37,9 @@ interface MapViewProps {
   centerMarker?: { lat: number; lng: number } | null;
   // Preview circle shown while adjusting radius before searching
   previewArea?: { lat: number; lng: number; radius: number } | null;
+  // Orders highlight — partners in this set get red pins when ordersFilterActive
+  ordersFilterActive?: boolean;
+  openOrderPartnerIds?: Set<string>;
 }
 
 // Generates a GeoJSON polygon approximating a circle on the map
@@ -95,6 +98,8 @@ export default function MapView({
   onPickCenter,
   centerMarker,
   previewArea,
+  ordersFilterActive,
+  openOrderPartnerIds,
 }: MapViewProps) {
   const [viewState, setViewState] = useState(INITIAL_VIEW);
   const mapRef = useRef<MapRef>(null);
@@ -210,6 +215,7 @@ export default function MapView({
                   partnerType={partner.partner_type}
                   status={partner.crm_status}
                   selected={isSelected}
+                  hasOpenOrders={!!ordersFilterActive && !!openOrderPartnerIds?.has(partner.id)}
                   onClick={() => onSelect({ type: "partner", data: partner })}
                 />
               </Marker>
@@ -333,6 +339,12 @@ export default function MapView({
             <span style={{ fontSize: "0.6875rem", color: "#A89F91" }}>{label}</span>
           </div>
         ))}
+        {ordersFilterActive && (
+          <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 4 }}>
+            <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#c4373a", flexShrink: 0 }} />
+            <span style={{ fontSize: "0.6875rem", color: "#A89F91" }}>Has open order</span>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase/client";
 import type { Partner, Prospect, PartnerType } from "@mecanova/shared";
@@ -50,6 +50,8 @@ export default function CRMPage() {
   const [searchPanelOpen, setSearchPanelOpen] = useState(false);
   const [searchCenter, setSearchCenter] = useState<{ lat: number; lng: number; label?: string } | null>(null);
   const [searchPreviewRadiusM, setSearchPreviewRadiusM] = useState(5000);
+  const [ordersFilterActive, setOrdersFilterActive] = useState(false);
+  const [openOrderPartnerIds, setOpenOrderPartnerIds] = useState<Set<string>>(new Set());
 
   const supabase = createClient();
 
@@ -78,10 +80,37 @@ export default function CRMPage() {
     setPartners(data ?? []);
   }, [supabase]);
 
+  // Load partner IDs that have at least one open order
+  // (status in submitted/accepted/delivered — not fulfilled/rejected/cancelled)
+  const loadOpenOrderPartnerIds = useCallback(async () => {
+    const { data } = await supabase
+      .from("order_requests")
+      .select("client_id")
+      .in("status", ["submitted", "accepted", "delivered"])
+      .not("client_id", "is", null);
+    setOpenOrderPartnerIds(
+      new Set((data ?? []).map((r) => r.client_id as string))
+    );
+  }, [supabase]);
+
   useEffect(() => {
     loadProspects();
     loadPartners();
-  }, [loadProspects, loadPartners]);
+    loadOpenOrderPartnerIds();
+  }, [loadProspects, loadPartners, loadOpenOrderPartnerIds]);
+
+  // Refresh open-order set when the tab regains focus
+  // (e.g. after closing an order in Operations and switching back)
+  useEffect(() => {
+    const onFocus = () => loadOpenOrderPartnerIds();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [loadOpenOrderPartnerIds]);
+
+  // Refresh when the user activates the toggle, so it always reflects the latest state
+  useEffect(() => {
+    if (ordersFilterActive) loadOpenOrderPartnerIds();
+  }, [ordersFilterActive, loadOpenOrderPartnerIds]);
 
   // Apply filters to what's shown on the map
   const filteredProspects = prospects.filter((p) => {
@@ -172,8 +201,9 @@ export default function CRMPage() {
       setSelected(null);
       await loadProspects();
       await loadPartners();
+      await loadOpenOrderPartnerIds();
     },
-    [loadProspects, loadPartners]
+    [loadProspects, loadPartners, loadOpenOrderPartnerIds]
   );
 
   // Handle map click in center-pick mode — optimistic update then reverse-geocode
@@ -207,6 +237,9 @@ export default function CRMPage() {
         onChange={setFilters}
         prospectCount={prospects.length}
         partnerCount={partners.length}
+        ordersFilterActive={ordersFilterActive}
+        onOrdersFilterChange={setOrdersFilterActive}
+        openOrderCount={openOrderPartnerIds.size}
       />
 
       {/* Map + Sidebar */}
@@ -241,6 +274,8 @@ export default function CRMPage() {
                 ? { lat: searchCenter.lat, lng: searchCenter.lng, radius: searchPreviewRadiusM }
                 : null
             }
+            ordersFilterActive={ordersFilterActive}
+            openOrderPartnerIds={openOrderPartnerIds}
           />
         </div>
 
